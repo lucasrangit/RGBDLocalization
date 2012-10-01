@@ -44,3 +44,27 @@ Notes
   * http://www.embedded-vision.com/platinum-members/bdti/embedded-vision-training/downloads/pages/introduction-computer-vision-using-op
  1. http://aimm02.cse.ttu.edu.tw/class_2009_2/CV.htm
   * Taiwanesse class on OpenCV
+ 1. http://linuxconfig.org/introduction-to-computer-vision-with-opencv-on-linux
+ 1. http://nashruddin.com/OpenCV_Examples_Part_2
+  * Tutorial on drawing, keyboard and mouse input
+ 1. http://nicolas.burrus.name/index.php/Research/KinectCalibration
+  * new site: http://labs.manctl.com/rgbdemo/
+ 1. https://cs.nyu.edu/courses/spring11/V22.0480-001/
+  * Kinect and OpenCV class
+ 1. https://codelaboratories.com/kb/nui
+  * Kinect Windows driver and SDK
+ 1. http://learn.adafruit.com/hacking-the-kinect
+ 1. https://digitalerr0r.wordpress.com/2011/06/21/kinect-fundamentals-3-getting-data-from-the-depth-sensor/
+  * Depth coloring tutorial using Microsoft SDK and XNA in C#
+ 1. http://openkinect.org/wiki/FAQ
+  * Specifications and data information
+ 1. http://openkinect.org/wiki/Protocol_Documentation
+  * OpenKinect USB protocol documentation
+ 1. http://answers.oreilly.com/topic/2443-introduction-to-openkinect-and-as3kinect/
+ 1. http://opencv.willowgarage.com/wiki/Posit
+ 1. http://nghiaho.com/?page_id=576
+ 1. http://opencv.willowgarage.com/wiki/Welcome/Introduction
+ 1. https://geodata.ethz.ch/geovite/tutorials/L3GeodataAndSpatialRelation/en/html/unit_u2GeoRef.html
+  * transformations explanation
+ 1. http://www.amazon.com/dp/0521623049/?tag=stackoverfl08-20
+ 	* projection geometry book
