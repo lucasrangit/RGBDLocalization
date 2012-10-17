@@ -91,14 +91,7 @@ Quality and Success Criteria
 
 Estimated 3D coordinates will be compared against ground truth. A successful project will be software that can be used by future indoor robot navigation projects. 
 
-Algorithm
-=========
-
- 1. Acquire RGBD frames of scene
- 1. Filter where depth sensor shows no data but where RGB does, keeping the depth data around the "dark" spots
- 1. Identify rectangular objects on ceilings and walls
- 1. Interpolate center of object
- 1. Using adjacent valid depth data around object triangulate camera's position
+Like any camera the Kinect's sensors require calibration to compensate for the affects of lense distortion. This process is called calibration. Some calibration has been performed on the IR sensor however in order to match the RGB and depth data images additional calibration is required.
 
 Related Work
 ============
@@ -138,6 +131,8 @@ The following are potential research topics that can build on the work presented
  * If the algorithm could be made efficient and fast, should the calculation of absolute position be executed continuously?
  * After position is determined orientation can also be found estimated based of the depth and angle to the landmark corners
  * Can a magnetometer be used to assist in oriented the robot instead of using markers?
+ * After calibration of the cameras and using the camera's instrinsic and extrinsic parameters how much more accurate is this algorithm at determining the absolute position?
+ * Can known constraints such as the minimum and maximum distances from any wall or ceiling be used to further reduce the domain to be scanned, thereby speeding up the calculations?
 
 References
 ==========
