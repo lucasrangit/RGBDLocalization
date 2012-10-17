@@ -94,8 +94,8 @@ enum {BLUE_INDEX=0, GREEN_INDEX=1, RED_INDEX=3};
 IplImage *kinect_depth_histogram(IplImage *depth)
 {
 	static IplImage *image = 0;
-	if (!image) image = cvCreateImage(cvSize(640,480), 8, 3);
-	unsigned char *depth_mid = (unsigned char*)(image->imageData);
+	if (!image) image = cvCreateImage( cvSize(depth->width, depth->height), IPL_DEPTH_8U, 3); // depth->depth
+	unsigned char *depth_color = (unsigned char*)(image->imageData);
 	int i;
 	for (i = 0; i < 640*480; i++)
 	{
@@ -104,37 +104,37 @@ IplImage *kinect_depth_histogram(IplImage *depth)
 		if (raw_disparity < 242) // (depth_meters < 0.4)
 		{
 			// unknown
-			depth_mid[3*i+RED_INDEX]	= 0;
-			depth_mid[3*i+GREEN_INDEX]	= 0;
-			depth_mid[3*i+BLUE_INDEX]	= 0;
+			depth_color[3*i+RED_INDEX]	= 0;
+			depth_color[3*i+GREEN_INDEX]	= 0;
+			depth_color[3*i+BLUE_INDEX]	= 0;
 		}
 		else if (raw_disparity < 658) // (depth_meters < 0.8)
 		{
 			// too close
-			depth_mid[3*i+RED_INDEX]	= 255;
-			depth_mid[3*i+GREEN_INDEX]	= 255;
-			depth_mid[3*i+BLUE_INDEX]	= 255;
+			depth_color[3*i+RED_INDEX]	= 255;
+			depth_color[3*i+GREEN_INDEX]	= 255;
+			depth_color[3*i+BLUE_INDEX]	= 255;
 		}
 		else if (raw_disparity < 1006) // (depth_meters < 4.0)
 		{
 			// normal
-			depth_mid[3*i+RED_INDEX]	= 0;
-			depth_mid[3*i+GREEN_INDEX]	= 0;
-			depth_mid[3*i+BLUE_INDEX]	= 255;
+			depth_color[3*i+RED_INDEX]	= 0;
+			depth_color[3*i+GREEN_INDEX]	= 0;
+			depth_color[3*i+BLUE_INDEX]	= 255;
 		}
 		else if (raw_disparity < 1050) // (depth_meters < 8.0)
 		{
 			// too far
-			depth_mid[3*i+RED_INDEX]	= 255;
-			depth_mid[3*i+GREEN_INDEX]	= 0;
-			depth_mid[3*i+BLUE_INDEX]	= 0;
+			depth_color[3*i+RED_INDEX]	= 255;
+			depth_color[3*i+GREEN_INDEX]	= 0;
+			depth_color[3*i+BLUE_INDEX]	= 0;
 		}
 		else  // if (depth_meters > 8.0)
 		{
 			// unknown
-			depth_mid[3*i+RED_INDEX]	= 0;
-			depth_mid[3*i+GREEN_INDEX]	= 0;
-			depth_mid[3*i+BLUE_INDEX]	= 0;
+			depth_color[3*i+RED_INDEX]	= 0;
+			depth_color[3*i+GREEN_INDEX]	= 0;
+			depth_color[3*i+BLUE_INDEX]	= 0;
 		}
 	}
 	return image;
