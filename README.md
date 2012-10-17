@@ -19,6 +19,33 @@ In this project, a computer vision algorithm that uses the depth and RGB data fr
 
 This project is unique in that it will take advantage of the Kinect's limited depth range. For example, as it was shown in Huang10 [1] where the depth data is missing, e.g. florescent lights, RGB data is present. The approach developed here will exploit this "limitation" and use it to classify the room's features, identify landmarks, and from this triangulate the camera's position.
 
+Algorithm
+=========
+<pre><code>
+  +-------+    +------- +    +--------+    +--------+
+  |       |    |        |    |Straight|    |        |
+  |  RGB  |+-->| Noise  |+-->|  Line  |+-->|  Edge  |+------------+
+  |       |    | Filter |    |Detector|    |Detector|             |
+  +-------+    +------- +    +--------+    +--------+             |
+                                                                  v
+                                                           +--------------+
+                                                           |              |
+                    +-------------------------------------+| Perspective  |
+                    |                                      |Transformation|
+                    |                                      +--------------+
+                    v
+  +-------+    +--------+
+  |       |    |        |
+  | Depth |+-->|Centroid|+------------+
+  |       |    |        |             |
+  +-------+    +--------+             |
+                                      v
+                                +----------+
+                                |          |
+                                |   Pose   |
+                                |Estimation|
+                                +----------+
+</code></pre>
 Objectives
 ==========
 
