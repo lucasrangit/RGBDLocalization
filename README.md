@@ -71,11 +71,11 @@ At least every two weeks there will be a deliverable and progress report due.
  * 2012/09/04 (Tue): Proposal
  * 2012/09/05 (Wed): Demo test application
  * 2012/09/07 (Fri): Revised Plan
- * 2012/09/19 (Wed): Filter Test
- * 2012/10/03 (Wed): Position Test
- * 2012/10/17 (Wed): Field Test
- * 2012/10/31 (Wed): Analysis of Experiments
- * 2012/11/14 (Wed): Draft Report
+ * 2012/10/19 (Wed): Filter Test
+ * 2012/11/03 (Wed): Position Test
+ * 2012/11/17 (Wed): Field Test
+ * 2012/11/29 (Mon): Analysis of Experiments
+ * 2012/11/31 (Wed): Draft Report
  * 2012/11/28 (Wed): Final Report
  * 2012/12/05 (Wed): Presentation
 
