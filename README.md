@@ -1,8 +1,6 @@
 Indoor Absolute Localization using RGB and Depth Sensors
 ========================================================
 
-__STATUS:__ PENDING ACCEPTANCE
-
 Purpose
 =======
 
