@@ -24,8 +24,8 @@ Algorithm
 <pre><code>
 
   +-------+    +--------+    +------- +    +--------+    +--------+
-  |       |    |        |    |        |    |Straight|    |        |
-  |  RGB  |+-->|Landmark|+-->| Noise  |+-->|  Line  |+-->|  Edge  |+------------+
+  |       |    |        |    |        |    |        |    |Straight|
+  |  RGB  |+-->|Landmark|+-->| Noise  |+-->|  Edge  |+-->|  Line  |+------------+
   | Camera|    |Filter  |    | Filter |    |Detector|    |Detector|             |
   +-------+    +--------+    +------- +    +--------+    +--------+             |
                     ^                                                           v
