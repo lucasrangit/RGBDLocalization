@@ -1,6 +1,7 @@
+#include <stdio.h>
 #include <cv.h>
 #include <highgui.h>
-#include <stdio.h>
+#include <math.h>
 #include "libfreenect_cv.h"
 
 static IplImage *in;
@@ -77,7 +78,7 @@ float raw_depth_to_meters_0(int raw_disparity)
 }
 
 /*
- * A better approximation is given by Stéphane Magnenat:
+ * A better approximation given by Stéphane Magnenat:
  *   distance = 0.1236 * tan(rawDisparity / 2842.5 + 1.1863) in meters.
  * Adding a final offset term of -0.037 centers the original ROS data.
  * The tan approximation has a sum squared difference of .33 cm while the
@@ -94,7 +95,7 @@ enum {BLUE_INDEX=0, GREEN_INDEX=1, RED_INDEX=3};
 IplImage *kinect_depth_histogram(IplImage *depth)
 {
 	static IplImage *image = 0;
-	if (!image) image = cvCreateImage( cvSize(depth->width, depth->height), IPL_DEPTH_8U, 3); // depth->depth
+	if (!image) image = cvCreateImage( cvSize(depth->width, depth->height), IPL_DEPTH_8U, 3); // depth->depth Unsigned 8-bit integer (8u)
 	unsigned char *depth_color = (unsigned char*)(image->imageData);
 	int i;
 	for (i = 0; i < 640*480; i++)
@@ -120,7 +121,7 @@ IplImage *kinect_depth_histogram(IplImage *depth)
 			// normal
 			depth_color[3*i+RED_INDEX]	= 0;
 			depth_color[3*i+GREEN_INDEX]	= 0;
-			depth_color[3*i+BLUE_INDEX]	= 255;
+			depth_color[3*i+BLUE_INDEX]	= (raw_disparity % (1006-255)) * (255/(1006-(1006-255)));
 		}
 		else if (raw_disparity < 1050) // (depth_meters < 8.0)
 		{
@@ -215,46 +216,79 @@ void get_cv_info() {
 	printf("Libraries: %s\nModules: %s\n", libraries, modules);
 }
 
+#define WINDOW_RGB "RGB"
+#define WINDOW_DEPTH "Depth"
+
 int main(int argc, char **argv)
 {
+	CvMemStorage* storage = cvCreateMemStorage(0);
 	CvFont font;
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
-	cvNamedWindow( "Depth", CV_WINDOW_AUTOSIZE);
-	cvSetMouseCallback( "Depth", mouseHandler, NULL );
+	cvNamedWindow( WINDOW_RGB, CV_WINDOW_AUTOSIZE);
+	cvSetMouseCallback( WINDOW_RGB, mouseHandler, NULL );
 
 //	get_cv_info();
 
-	//test_1();
+//	test_1();
 
 	while (cvWaitKey(500) < 0) {
-		IplImage *image = freenect_sync_get_rgb_cv(0);
-		if (!image) {
+		IplImage *image_rgb = freenect_sync_get_rgb_cv(0);
+		if (!image_rgb) {
 		    printf("Error: Kinect not connected?\n");
 		    return -1;
 		}
-		cvCvtColor(image, image, CV_RGB2BGR);
-		IplImage *depth = freenect_sync_get_depth_cv(0);
-		if (!depth) {
+		cvCvtColor(image_rgb, image_rgb, CV_RGB2BGR);
+
+		IplImage *image_disparity = freenect_sync_get_depth_cv(0);
+		if (!image_disparity) {
 		    printf("Error: Kinect not connected?\n");
 		    return -1;
 		}
+
+		IplImage *image_depth = kinect_depth_histogram(image_disparity);
+
+		IplImage* image_blended = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 3);
+		cvAddWeighted(image_rgb, 1.0, image_depth, 1.0, 0.0, image_blended);
+		cvShowImage( "Blended", image_blended);
+
+		IplImage *image_depth_gray = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 1);
+		cvCvtColor( image_depth, image_depth_gray, CV_RGB2GRAY);
+		IplImage *image_mask = cvCreateImage( cvGetSize(image_depth_gray), IPL_DEPTH_8U, 1);
+		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+
+		cvSmooth(image_rgb, image_rgb, CV_GAUSSIAN, 5, 5, 0, 0);
+		IplImage* image_gray = cvCreateImage( cvGetSize(image_rgb), IPL_DEPTH_8U, 1);
+		cvCvtColor( image_rgb, image_gray, CV_RGB2GRAY);
+		IplImage* image_edges = cvCreateImage( cvGetSize(image_gray), IPL_DEPTH_8U, 1);
+		cvCanny( image_gray, image_edges, 10, 100, 3 );
+		cvShowImage( "Edges", image_edges);
+
+		CvSeq* results = cvHoughLines2(
+				image_edges,
+				storage,
+				CV_HOUGH_STANDARD,
+				2.0, 2.0,
+				image_edges->width/10,
+				0, 0
+		);
+
 
 		if (-1 != x_click && -1 != y_click)
 		{
 			char coord_str[] = "640,480,-01.234";
 			int coord_str_len = strlen(coord_str);
-			int pixel_disparity = ((short *)depth->imageData)[y_click * 640 + x_click];
+			int pixel_disparity = ((short *)image_disparity->imageData)[y_click * 640 + x_click];
 			sprintf(coord_str, "%03d,%03d,%04d", x_click, y_click, pixel_disparity);
 //			float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
 //			sprintf(coord_str, "%03d,%03d,%02.03f", x_click, y_click, pixel_depth_meters);
 			coord_str[coord_str_len] = '\0';
-			cvPutText(depth, coord_str, cvPoint(x_click, y_click), &font, cvScalar(255, 255, 255, 0));
+			cvPutText(image_rgb, coord_str, cvPoint(x_click, y_click), &font, cvScalar(255, 255, 255, 0));
 		}
 
-		cvShowImage("RGB", image);
-//		cvShowImage("Depth", GlViewColor(depth));
-		cvShowImage("Depth", kinect_depth_histogram(depth));
-		//cvShowImage("Depth", depth);
+		cvShowImage(WINDOW_RGB, image_rgb);
+//		cvShowImage(WINDOW_DEPTH, GlViewColor(depth));
+		cvShowImage(WINDOW_DEPTH, image_depth);
+		//cvShowImage(WINDOW_DEPTH, depth);
 	}
 
 	return 0;
