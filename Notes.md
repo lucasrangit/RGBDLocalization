@@ -68,3 +68,11 @@ Notes
   * transformations explanation
  1. http://www.amazon.com/dp/0521623049/?tag=stackoverfl08-20
  	* projection geometry book
+ 1. http://opencv.willowgarage.com/documentation/cpp/camera_calibration_and_3d_reconstruction.html
+ 1. http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/FUSIELLO4/tutorial.html
+ 1. https://courses.engr.illinois.edu/cs543/sp2011/lectures/Lecture%2008%20-%20Finding%20Edges%20and%20Straight%20Lines%20-%20Vision_Spring2011.pdf
+ 1. http://docs.opencv.org/doc/tutorials/imgproc/imgtrans/hough_lines/hough_lines.html
+ 1. http://stackoverflow.com/questions/279410/opencv-object-detection-center-point
+ 1. http://computer-vision-talks.com/2011/11/pose-estimation-problem/
+ 1. http://www.aishack.in/2010/01/an-introduction-to-contours/
+ 1. 
