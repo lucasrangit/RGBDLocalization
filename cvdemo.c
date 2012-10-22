@@ -216,6 +216,42 @@ void get_cv_info() {
 	printf("Libraries: %s\nModules: %s\n", libraries, modules);
 }
 
+IplImage* detect_contours(IplImage* img)
+{
+	CvSeq* contours;
+	CvSeq* result;
+	CvMemStorage *storage = cvCreateMemStorage(0);
+	static IplImage* ret = NULL;
+	if (!ret) ret = cvCreateImage(cvGetSize(img), 8, 1);
+	IplImage* temp = cvCreateImage(cvGetSize(img), 8, 1);
+	int i;
+	cvCopy(img, temp, NULL);
+	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
+	while(contours)
+	{
+		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.02, 0);
+		if ((result->total==4)  &&
+			(fabs(cvContourArea(result, CV_WHOLE_SEQ, 0)) > 20) &&
+			(cvCheckContourConvexity(result)))
+		{
+			CvPoint *pt[4];
+			for( i=0; i<4; i++)
+				pt[i] = (CvPoint*)cvGetSeqElem(result, i);
+
+			cvLine(ret, *pt[0], *pt[1], cvScalarAll(255), 1, 8, 0);
+			cvLine(ret, *pt[1], *pt[2], cvScalarAll(255), 1, 8, 0);
+			cvLine(ret, *pt[2], *pt[3], cvScalarAll(255), 1, 8, 0);
+			cvLine(ret, *pt[3], *pt[0], cvScalarAll(255), 1, 8, 0);
+		}
+		contours = contours->h_next;
+	}
+
+	cvReleaseImage(&temp);
+	cvReleaseMemStorage(&storage);
+
+	return ret;
+}
+
 #define WINDOW_RGB "RGB"
 #define WINDOW_DEPTH "Depth"
 
@@ -270,6 +306,9 @@ int main(int argc, char **argv)
 		IplImage *image_rgb_masked = cvCreateImage( cvGetSize(image_rgb), IPL_DEPTH_8U, 3);
 		cvCopy( image_rgb, image_rgb_masked, image_mask);
 		cvShowImage( "RGB Mask", image_rgb_masked);
+
+		IplImage *image_contours = detect_contours(image_mask);
+	    cvShowImage( "Contours", image_contours);
 
 		cvSmooth(image_rgb, image_rgb, CV_GAUSSIAN, 5, 5, 0, 0);
 		IplImage* image_gray = cvCreateImage( cvGetSize(image_rgb), IPL_DEPTH_8U, 1);
