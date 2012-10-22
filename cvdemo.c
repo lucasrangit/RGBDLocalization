@@ -1,11 +1,12 @@
 #include <stdio.h>
+#include <math.h>
 #include <cv.h>
 #include <highgui.h>
-#include <math.h>
 #include "libfreenect_cv.h"
 
 static IplImage *in;
 //static IplImage *out;
+static IplImage *image_mask_smooth;
 static int x_click = -1;
 static int y_click = -1;
 
@@ -101,7 +102,6 @@ IplImage *kinect_depth_histogram(IplImage *depth)
 	for (i = 0; i < 640*480; i++)
 	{
 		int raw_disparity = ((short *)depth->imageData)[i];
-		//float depth_meters = raw_depth_to_meters(raw_depth);
 		if (raw_disparity < 242) // (depth_meters < 0.4)
 		{
 			// unknown
@@ -112,21 +112,21 @@ IplImage *kinect_depth_histogram(IplImage *depth)
 		else if (raw_disparity < 658) // (depth_meters < 0.8)
 		{
 			// too close
-			depth_color[3*i+RED_INDEX]	= 255;
-			depth_color[3*i+GREEN_INDEX]	= 255;
-			depth_color[3*i+BLUE_INDEX]	= 255;
+			depth_color[3*i+RED_INDEX]	= 0;
+			depth_color[3*i+GREEN_INDEX]	= 0;
+			depth_color[3*i+BLUE_INDEX]	= 0;
 		}
 		else if (raw_disparity < 1006) // (depth_meters < 4.0)
 		{
 			// normal
 			depth_color[3*i+RED_INDEX]	= 0;
 			depth_color[3*i+GREEN_INDEX]	= 0;
-			depth_color[3*i+BLUE_INDEX]	= (raw_disparity % (1006-255)) * (255/(1006-(1006-255)));
+			depth_color[3*i+BLUE_INDEX]	= 0;
 		}
 		else if (raw_disparity < 1050) // (depth_meters < 8.0)
 		{
 			// too far
-			depth_color[3*i+RED_INDEX]	= 255;
+			depth_color[3*i+RED_INDEX]	= 0;
 			depth_color[3*i+GREEN_INDEX]	= 0;
 			depth_color[3*i+BLUE_INDEX]	= 0;
 		}
@@ -134,7 +134,7 @@ IplImage *kinect_depth_histogram(IplImage *depth)
 		{
 			// unknown
 			depth_color[3*i+RED_INDEX]	= 0;
-			depth_color[3*i+GREEN_INDEX]	= 0;
+			depth_color[3*i+GREEN_INDEX]	= 255;
 			depth_color[3*i+BLUE_INDEX]	= 0;
 		}
 	}
@@ -253,8 +253,23 @@ int main(int argc, char **argv)
 
 		IplImage *image_depth_gray = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 1);
 		cvCvtColor( image_depth, image_depth_gray, CV_RGB2GRAY);
+//		cvShowImage( "Depth Gray", image_depth_gray);
 		IplImage *image_mask = cvCreateImage( cvGetSize(image_depth_gray), IPL_DEPTH_8U, 1);
-		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY);
+		if (NULL == image_mask_smooth)
+		{
+			image_mask_smooth = cvCreateImage( cvGetSize(image_mask), IPL_DEPTH_8U, 1);
+			cvCopy( image_mask, image_mask_smooth, NULL);
+		}
+		else
+			cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL);
+//		cvShowImage( "Mask And", image_mask_smooth);
+		image_mask = image_mask_smooth;
+		cvShowImage( "Mask", image_mask);
+
+		IplImage *image_rgb_masked = cvCreateImage( cvGetSize(image_rgb), IPL_DEPTH_8U, 3);
+		cvCopy( image_rgb, image_rgb_masked, image_mask);
+		cvShowImage( "RGB Mask", image_rgb_masked);
 
 		cvSmooth(image_rgb, image_rgb, CV_GAUSSIAN, 5, 5, 0, 0);
 		IplImage* image_gray = cvCreateImage( cvGetSize(image_rgb), IPL_DEPTH_8U, 1);
