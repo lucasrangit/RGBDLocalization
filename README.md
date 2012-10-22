@@ -22,7 +22,6 @@ This project is unique in that it will take advantage of the Kinect's limited de
 Algorithm
 =========
 <pre><code>
-
   +-------+    +--------+    +------- +    +--------+    +--------+
   |       |    |        |    |        |    |        |    |Straight|
   |  RGB  |+-->|Landmark|+-->| Noise  |+-->|  Edge  |+-->|  Line  |+------------+
