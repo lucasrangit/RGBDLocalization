@@ -93,7 +93,11 @@ float raw_depth_to_meters(int raw_disparity)
 }
 
 enum {BLUE_INDEX=0, GREEN_INDEX=1, RED_INDEX=3};
-IplImage *kinect_depth_histogram(IplImage *depth)
+/*
+ * Color only value for disparity values in the ranges of interest.
+ * Specifically, keep only the "normal" range and in the "no data" range.
+ */
+IplImage *kinect_disparity_filter(IplImage *depth)
 {
 	static IplImage *image = 0;
 	if (!image) image = cvCreateImage( cvSize(depth->width, depth->height), IPL_DEPTH_8U, 3); // depth->depth Unsigned 8-bit integer (8u)
@@ -143,21 +147,22 @@ IplImage *kinect_depth_histogram(IplImage *depth)
 
 void mouseHandler(int event, int x, int y, int flags, void *param)
 {
-	switch(event) {
-	/* left button down */
+	switch (event)
+	{
 	case CV_EVENT_LBUTTONDOWN:
+		/* left button down */
 		x_click = x;
 		y_click = y;
 		fprintf(stdout, "Left button down (%d, %d).\n", x, y);
 		break;
 
-		/* right button down */
 	case CV_EVENT_RBUTTONDOWN:
+		/* right button down */
 		fprintf(stdout, "Right button down (%d, %d).\n", x, y);
 		break;
 
-		/* mouse move */
 	case CV_EVENT_MOUSEMOVE:
+		/* mouse move */
 #if 0
 		/* draw a rectangle */
 		//out = cvCloneImage( in);
@@ -225,13 +230,15 @@ IplImage* detect_contours(IplImage* img)
 	if (!ret) ret = cvCreateImage(cvGetSize(img), 8, 1);
 	IplImage* temp = cvCreateImage(cvGetSize(img), 8, 1);
 	int i;
+	double area;
 	cvCopy(img, temp, NULL);
 	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 	while(contours)
 	{
 		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.02, 0);
+		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
 		if ((result->total==4)  &&
-			(fabs(cvContourArea(result, CV_WHOLE_SEQ, 0)) > 20) &&
+			(area > 1000) && // @TODO determine area for smallest light and largest
 			(cvCheckContourConvexity(result)))
 		{
 			CvPoint *pt[4];
@@ -255,19 +262,56 @@ IplImage* detect_contours(IplImage* img)
 #define WINDOW_RGB "RGB"
 #define WINDOW_DEPTH "Depth"
 
+static int x_offset = 0;
+static int y_offset = 0;
+
 int main(int argc, char **argv)
 {
 	CvMemStorage* storage = cvCreateMemStorage(0);
 	CvFont font;
+	char key;
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
 	cvNamedWindow( WINDOW_RGB, CV_WINDOW_AUTOSIZE);
 	cvSetMouseCallback( WINDOW_RGB, mouseHandler, NULL );
 
 //	get_cv_info();
-
 //	test_1();
 
-	while (cvWaitKey(500) < 0) {
+	while (key != 'q')
+	{
+		switch (key)
+		{
+		case -1:
+		case 'q':
+			break;
+		case 81:
+			// left
+			x_offset--;
+			break;
+		case 82:
+			// up
+			y_offset--;
+			break;
+		case 83:
+			// right
+			x_offset++;
+			break;
+		case 84:
+			// down
+			y_offset++;
+			break;
+		case '-':
+			// scale down
+			// @todo
+			break;
+		case '=':
+			// scale up
+			// @todo
+			break;
+		default:
+			break;
+		}
+
 		IplImage *image_rgb = freenect_sync_get_rgb_cv(0);
 		if (!image_rgb) {
 		    printf("Error: Kinect not connected?\n");
@@ -281,28 +325,62 @@ int main(int argc, char **argv)
 		    return -1;
 		}
 
-		IplImage *image_depth = kinect_depth_histogram(image_disparity);
+		IplImage *image_depth = kinect_disparity_filter(image_disparity);
+
+		// shift depth image
+		IplImage *image_depth_shifted = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 3);
+		if (x_offset >= 0 && y_offset >= 0)
+		{
+			cvSetImageROI(image_depth_shifted, cvRect(abs(x_offset), abs(y_offset), 640, 480) );
+			cvSetImageROI(image_depth, cvRect(0, 0, 640-abs(x_offset), 480-abs(y_offset)) );
+		}
+		else if (x_offset >= 0 && y_offset < 0)
+		{
+			cvSetImageROI(image_depth_shifted, cvRect( abs(x_offset), 0, 640-abs(x_offset), 480-abs(y_offset) ) );
+			cvSetImageROI(image_depth, cvRect( 0, abs(y_offset), 640-abs(x_offset), 480-abs(y_offset) ) );
+		}
+		else if (x_offset < 0 && y_offset >= 0)
+		{
+			cvSetImageROI(image_depth_shifted, cvRect( 0, abs(y_offset), 640-abs(x_offset), 480-abs(y_offset) ) );
+			cvSetImageROI(image_depth, cvRect( abs(x_offset), 0, 640-abs(x_offset), 480-abs(y_offset) ) );
+		}
+		else if (x_offset < 0 && y_offset < 0)
+		{
+			cvSetImageROI(image_depth_shifted, cvRect(0, 0, 640-abs(x_offset), 480-abs(y_offset)));
+			cvSetImageROI(image_depth, cvRect(abs(x_offset),abs(y_offset),640-abs(x_offset),480-abs(y_offset)));
+		}
+		cvCopy( image_depth, image_depth_shifted, NULL);
+		cvResetImageROI(image_depth_shifted);
+		cvResetImageROI(image_depth);
+		image_depth = image_depth_shifted;
 
 		IplImage* image_blended = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 3);
 		cvAddWeighted(image_rgb, 1.0, image_depth, 1.0, 0.0, image_blended);
 		cvShowImage( "Blended", image_blended);
+
 
 		IplImage *image_depth_gray = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 1);
 		cvCvtColor( image_depth, image_depth_gray, CV_RGB2GRAY);
 //		cvShowImage( "Depth Gray", image_depth_gray);
 		IplImage *image_mask = cvCreateImage( cvGetSize(image_depth_gray), IPL_DEPTH_8U, 1);
 		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY);
+
+		// take multiple samples of the mask
+#if 0
 		if (NULL == image_mask_smooth)
 		{
 			image_mask_smooth = cvCreateImage( cvGetSize(image_mask), IPL_DEPTH_8U, 1);
 			cvCopy( image_mask, image_mask_smooth, NULL);
 		}
 		else
-			cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL);
-//		cvShowImage( "Mask And", image_mask_smooth);
+		{
+			cvAdd( image_mask, image_mask_smooth, image_mask_smooth, NULL);
+			//cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL);
+		}
+		//		cvShowImage( "Mask And", image_mask_smooth);
 		image_mask = image_mask_smooth;
 		cvShowImage( "Mask", image_mask);
-
+#endif
 		IplImage *image_rgb_masked = cvCreateImage( cvGetSize(image_rgb), IPL_DEPTH_8U, 3);
 		cvCopy( image_rgb, image_rgb_masked, image_mask);
 		cvShowImage( "RGB Mask", image_rgb_masked);
@@ -343,6 +421,8 @@ int main(int argc, char **argv)
 //		cvShowImage(WINDOW_DEPTH, GlViewColor(depth));
 		cvShowImage(WINDOW_DEPTH, image_depth);
 		//cvShowImage(WINDOW_DEPTH, depth);
+
+		key = cvWaitKey(500);
 	}
 
 	return 0;
