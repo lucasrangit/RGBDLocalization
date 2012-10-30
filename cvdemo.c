@@ -4,9 +4,7 @@
 #include <highgui.h>
 #include "libfreenect_cv.h"
 
-static IplImage *in;
-//static IplImage *out;
-static IplImage *image_mask_smooth;
+//static IplImage *image_mask_smooth;
 static int x_click = -1;
 static int y_click = -1;
 
@@ -179,40 +177,6 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 	}
 }
 
-void test_1()
-{
-	in = cvLoadImage( "Ceiling_Tiles.JPG", CV_LOAD_IMAGE_GRAYSCALE);
-	cvNamedWindow( "Example1-in", CV_WINDOW_AUTOSIZE);
-	cvNamedWindow( "Example1-out", CV_WINDOW_AUTOSIZE);
-	IplImage* out = cvCreateImage( cvGetSize(in), IPL_DEPTH_8U, 1);
-	CvFont font;
-	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
-
-	cvSetMouseCallback( "Example1-in", mouseHandler, NULL );
-
-	//cvSmooth(in, out, CV_GAUSSIAN, 11, 11, 0, 0);
-	//cvCanny( in, out, 10, 100, 3 );
-
-	while ( cvWaitKey( 10) < 0)
-	{
-		if (-1 != x_click && -1 != y_click)
-		{
-			char coord_str[8];
-			sprintf(coord_str, "%03d,%03d", x_click, y_click);
-			cvPutText(in, coord_str, cvPoint(x_click, y_click), &font, cvScalar(255, 255, 255, 0));
-			x_click = y_click = -1;
-		}
-		cvShowImage( "Example1-in", in);
-	}
-
-	cvShowImage( "Example1-out", out);
-
-	cvReleaseImage( &in);
-	cvReleaseImage( &out);
-	cvDestroyWindow( "Example1-in");
-	cvDestroyWindow( "Example1-out");
-}
-
 void get_cv_info() {
 	const char* libraries;
 	const char* modules;
@@ -275,7 +239,6 @@ int main(int argc, char **argv)
 	cvSetMouseCallback( WINDOW_RGB, mouseHandler, NULL );
 
 //	get_cv_info();
-//	test_1();
 
 	while (key != 'q')
 	{
@@ -284,28 +247,22 @@ int main(int argc, char **argv)
 		case -1:
 		case 'q':
 			break;
-		case 81:
-			// left
+		case 81:	// left
 			x_offset--;
 			break;
-		case 82:
-			// up
+		case 82:	// up
 			y_offset--;
 			break;
-		case 83:
-			// right
+		case 83:	// right
 			x_offset++;
 			break;
-		case 84:
-			// down
+		case 84:	// down
 			y_offset++;
 			break;
-		case '-':
-			// scale down
+		case '-':	// scale down
 			// @todo
 			break;
-		case '=':
-			// scale up
+		case '=':	// scale up
 			// @todo
 			break;
 		default:
@@ -365,8 +322,8 @@ int main(int argc, char **argv)
 		IplImage *image_mask = cvCreateImage( cvGetSize(image_depth_gray), IPL_DEPTH_8U, 1);
 		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY);
 
+#if 0 	// can't take multiple samples if the depth data can be moved around
 		// take multiple samples of the mask
-#if 0
 		if (NULL == image_mask_smooth)
 		{
 			image_mask_smooth = cvCreateImage( cvGetSize(image_mask), IPL_DEPTH_8U, 1);
