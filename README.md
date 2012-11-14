@@ -6,18 +6,17 @@ Purpose
 
 The purpose of this project is to combine the depth and RGB camera data available in the Microsoft Kinect to triangulate absolute position from known room features.
 
-Scope
-=====
+Abstract
+========
+Submit to: ION Pacific PNT 2013 (https://www.ion.org/meetings/pnt2013/pnt2013cfa.cfm)
 
-Mobile robots operating indoors must be capable of navigating often cluttered environments without access to GNSS data. There are existing techniques that can assist the indoor robot, such as Wifi beacons, however these techniques are ususceptible to modifications to the environment. Optical or range sensors offers an alternative approach that has recently become cost-effective.
+Mobile robots operating indoors must be capable of navigating without access to GNSS data. Determining location is the most important function of mobile robots. Existing localization techniques exist, such as Wifi beacons, however these techniques are susceptible to tampering, noise in the environment, or are prohibitively expensive. Alternatively, permanent landmarks such as windows and ceiling lights can be identified and used to determine location. In this paper, an optical and range sensing algorithm using the Microsoft Kinect sensor, Libfreenect driver, and OpenCV computer vision software is proposed. The Microsoft Kinect sensor is a revolutionary low-cost device that combines multiple sensors to provide depth and video data via USB. In addition, as it was shown in Huang10 [1] where the depth data is missing, e.g. florescent lights, RGB data is present. The approach developed here will exploit this "limitation" and use it to more easily identify a room's features and from this triangulate the camera's position. Recent publication of experimental data shows that the Kinect is accurate enough for indoor mobile robotics applications[1]. In addition to using commercial off-the-shelf hardware, this algorithm leverages the OpenCV (Open Source Computer Vision) library. OpenCV provides over 500 functions for general image processing, segmentation, transforms, machine learning, geometric descriptors, features, tracking, matrix math, camera calibration, fitting, utilities, and data structures[2]. The proposed algorithm first identifies landmarks by searching quadrilaterals in color data but missing from the depth data. The perspective transformation of these landmarks and the depth to their verticies is then used to estimate the robots relative position. Finally, with a priori knowledge of the fixed lights coordinates in the room, the robots absolute position is estimated. 
 
-The Microsoft Kinect sensor is an inexpensive combination of multiple sensors and PrimeSense System-on-Chip (SoC) sensor fusion that provides both depth and video via USB. Recent publication of experimental data shows that the Kinect is accurate enough for indoor mobile robotics applications[1]. 
+References
+==========
 
-In addition to using commercial off-the-shelf hardware, this project will leverage the OpenCV (Open Source Computer Vision) library. OpenCV provides over 500 functions for general image processing, segmentation, transforms, machine learning, geometric descriptors, features, tracking, matrix math, camera calibration, fitting, utilities, and data structures[2].
-
-In this project, a computer vision algorithm that uses the depth and RGB data from the Kinect will be developed to estimate the absolute position using a priori knowledge of indoor landmarks (e.g. walls, lights, doors). The robot will be stationary, will not assume a predetermined starting position, and will not rely on external sensors such as GPS.
-
-This project is unique in that it will take advantage of the Kinect's limited depth range. For example, as it was shown in Huang10 [1] where the depth data is missing, e.g. florescent lights, RGB data is present. The approach developed here will exploit this "limitation" and use it to classify the room's features, identify landmarks, and from this triangulate the camera's position.
+ 1. El-laithy, R.,  Huang, J., & M. Yeh: _Study on the Use of Microsoft Kinect for Robotics Applications, Proceedings of IEEE/ION Position, Location and Navigation Symposium (PLANS) 2012_, Myrtle Beach, SC, Apr. 2012 
+ 1. _OpenCV Wiki_, 09 Sep 2012, <http://opencv.willowgarage.com/>
 
 Algorithm
 =========
@@ -133,9 +132,4 @@ The following are potential research topics that can build on the work presented
  * After calibration of the cameras and using the camera's instrinsic and extrinsic parameters how much more accurate is this algorithm at determining the absolute position?
  * Can known constraints such as the minimum and maximum distances from any wall or ceiling be used to further reduce the domain to be scanned, thereby speeding up the calculations?
 
-References
-==========
-
- 1. El-laithy, R.,  Huang, J., & M. Yeh: _Study on the Use of Microsoft Kinect for Robotics Applications, Proceedings of IEEE/ION Position, Location and Navigation Symposium (PLANS) 2012_, Myrtle Beach, SC, Apr. 2012 
- 1. _OpenCV Wiki_, 09 Sep 2012, <http://opencv.willowgarage.com/>
 
