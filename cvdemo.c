@@ -1,19 +1,61 @@
 #include <stdio.h>
-#include <math.h>
 #include <stdbool.h>
+//#include <stdlib.h>
+#include <unistd.h>
+#include <math.h>
 #include <cv.h>
 #include <highgui.h>
+#include <libfreenect.h>
+#include <libfreenect_sync.h>
 #include "libfreenect_cv.h"
 
-#define PROCESS_FPS		2
-#define WINDOW_RGB 		"RGB"
-#define WINDOW_DEPTH 	"Depth"
+/*
+ * How many frames to process per second depends on the application.
+ * Tune this based of the performance of the CPU.
+ * Sensor over USB cannot handle more than 30 FPS.
+ */
+enum {
+	PROCESS_FPS = 2,
+	CONTOUR_AREA_MIN = 2000, // @TODO automatically determine area for smallest and largest ceiling light
+	CONTOUR_AREA_MAX = 9000
+};
+
+// Kinect's maximum tilt (from libfreenect header)
+enum { MAX_TILT_ANGLE = 31 };
+
+// Channel index for BGR images
+enum {
+	BGR_BLUE_INDEX	= 0,
+	BGR_GREEN_INDEX	= 1,
+	BGR_RED_INDEX	= 3
+};
+
+
+static const char windows_name_rbg[] 	= "RBG";
+static const char windows_name_depth[] 	= "Depth";
 
 static int x_click = -1;
 static int y_click = -1;
 static int canny_low = 80;
 static int canny_high = 100;
 static bool clear = 0;
+
+struct stats {
+	int count;
+	double average;
+	double min;
+	double max;
+};
+typedef enum stats_array_index {
+	RGB_CONTOURS = 0,
+	DEPTH_CONTOURS,
+	STATS_ARRAY_DIMENSIONS
+} stats_array_index;
+static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
+	{
+		{ 0, 0, INT32_MAX, 0.0 },
+		{ 0, 0, INT32_MAX, 0.0 }
+	};
 
 #if 0
 /*
@@ -23,7 +65,7 @@ static bool clear = 0;
  * This approximation is approximately 10 cm off at 4 m away, and less than
  * 2 cm off within 2.5 m.
  */
-float raw_depth_to_meters(int raw_disparity)
+static float raw_depth_to_meters(int raw_disparity)
 {
 	float depth = 1.0 / (raw_disparity * -0.0030711016 + 3.3309495161);
 	return depth;
@@ -44,7 +86,6 @@ static float raw_depth_to_meters(int raw_disparity)
 }
 #endif
 
-enum {BGR_BLUE_INDEX=0, BGR_GREEN_INDEX=1, BGR_RED_INDEX=3};
 /*
  * Color only value for disparity values in the ranges of interest.
  * Specifically, keep only the "no data" range.
@@ -145,7 +186,7 @@ static void get_cv_info() {
 /*
  * Find contours of ceiling lights.
  */
-static IplImage* detect_contours(IplImage* img)
+static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_index)
 {
 	CvSeq* contours;
 	CvSeq* result;
@@ -156,26 +197,69 @@ static IplImage* detect_contours(IplImage* img)
 	IplImage* temp = cvCreateImage(cvGetSize(img), 8, 1);
 	int i;
 	double area;
+	int contour_index = 0;
+	CvScalar color_pallete[] =
+	{
+		CV_RGB( 255, 0, 0 ), 	// red
+		CV_RGB( 0, 255, 0 ), 	// green
+		CV_RGB( 0, 0, 255 ), 	// blue
+		CV_RGB( 255, 255, 0 ), 	//
+		CV_RGB( 255, 0, 255 ), 	//
+		CV_RGB( 0, 255, 255 ), 	//
+		CV_RGB( 255, 255, 255 ) // white
+	};
+	int color_pallete_index_max = sizeof(color_pallete)/sizeof(CvScalar) - 1;
+
+	// reset stats for each frame
+	{
+		stats_array[stats_index].average = 0;
+		stats_array[stats_index].count   = 0;
+		stats_array[stats_index].min     = INT32_MAX;
+		stats_array[stats_index].max     = 0.0;
+	}
+
 	cvCopy(img, temp, NULL);
-	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
+//	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
+	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 	while (contours)
 	{
 		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.02, 0);
 		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
+
+
+		// for calibration, keep running statistics, initialized for each frame
+		// skip contours of zero area
+		if (area)
+		{
+			stats_array[stats_index].count++;
+			stats_array[stats_index].average = (stats_array[stats_index].average + area)/stats_array[stats_index].count;
+			stats_array[stats_index].min     = MIN(stats_array[stats_index].min, area);
+			stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
+		}
+
 		if ((4 == result->total)  && // has 4 vertices
-			(area > 60000) && // @TODO determine area for smallest light and largest
+			(area > CONTOUR_AREA_MIN) && // has sufficient area
+			(area < CONTOUR_AREA_MAX) &&
 			(cvCheckContourConvexity(result))) // is convex
 		{
 			CvPoint *pt[4];
 			for( i=0; i<4; i++)
 				pt[i] = (CvPoint*)cvGetSeqElem(result, i);
 			// draw contour
-			cvLine(ret, *pt[0], *pt[1], cvScalarAll(255), 1, 8, 0);
-			cvLine(ret, *pt[1], *pt[2], cvScalarAll(255), 1, 8, 0);
-			cvLine(ret, *pt[2], *pt[3], cvScalarAll(255), 1, 8, 0);
-			cvLine(ret, *pt[3], *pt[0], cvScalarAll(255), 1, 8, 0);
-			fprintf(stdout, "(%d,%d) (%d,%d) (%d,%d) (%d,%d)\n", pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y);
+			{
+				//CvScalar line_color = color_pallete[contour_index]; // use with color image
+				CvScalar line_color = cvScalarAll(255); // use with black and white image
+				int line_thickness = contour_index+1;
+				cvLine(ret, *pt[0], *pt[1], line_color, line_thickness, 8, 0);
+				cvLine(ret, *pt[1], *pt[2], line_color, line_thickness, 8, 0);
+				cvLine(ret, *pt[2], *pt[3], line_color, line_thickness, 8, 0);
+				cvLine(ret, *pt[3], *pt[0], line_color, line_thickness, 8, 0);
+			}
+			fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
+			if ( contour_index < color_pallete_index_max)
+				contour_index++; // stop at white
 		}
+
 		contours = contours->h_next;
 	}
 
@@ -237,14 +321,30 @@ int main(int argc, char **argv)
 	int y_offset = 0;
 	IplImage *image_mask_smooth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	cvZero(image_mask_smooth);
-
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
-	cvNamedWindow( WINDOW_RGB, CV_WINDOW_AUTOSIZE);
-	cvSetMouseCallback( WINDOW_RGB, mouseHandler, NULL );
+	cvNamedWindow( windows_name_rbg, CV_WINDOW_AUTOSIZE);
+	cvSetMouseCallback( windows_name_rbg, mouseHandler, NULL );
+	freenect_raw_tilt_state *state = 0;
+
 
 //	get_cv_info();
 
-	// process frames indefinitely until user presses 'q' for quit
+	if (freenect_sync_set_tilt_degs(MAX_TILT_ANGLE, 0)) {
+	    printf("Error: Kinect not connected?\n");
+	    return -1;
+	}
+
+	// wait for motor to stop moving before capturing images
+	do {
+		if (freenect_sync_get_tilt_state(&state, 0)) {
+			printf("Error: Kinect not connected?\n");
+			return -1;
+		}
+	} while (TILT_STATUS_STOPPED != state->tilt_status);
+	sleep(1); // @bug motor doesn't report correct state consistently
+
+	// process frames indefinitely at the rate defined by PROCESS_FPS
+	// quit when user presses 'q'
 	while (key != 'q')
 	{
 		IplImage *image_rgb = freenect_sync_get_rgb_cv(0);
@@ -303,7 +403,15 @@ int main(int argc, char **argv)
 		// this fills in the depth mask
 		if (clear)
 		{
+			int i;
 			clear = false;
+			for (i = 0; i < STATS_ARRAY_DIMENSIONS; ++i)
+			{
+				stats_array[i].average = 0;
+				stats_array[i].count   = 0;
+				stats_array[i].min     = INT32_MAX;
+				stats_array[i].max     = 0.0;
+			}
 			cvZero(image_mask_smooth);
 		}
 		cvAdd( image_mask, image_mask_smooth, image_mask_smooth, NULL);
@@ -317,11 +425,13 @@ int main(int argc, char **argv)
 #endif
 
 		// find polygons in the disparity data
+		fprintf(stdout, "Disparity Contours (X,Y)\n");
 		IplImage* disparity_contours = cvCreateImage( cvGetSize(image_mask_smooth), IPL_DEPTH_8U, 1);
-		cvCopy( detect_contours(image_mask_smooth), disparity_contours, NULL);
+		cvCopy( detect_contours(image_mask_smooth, RGB_CONTOURS), disparity_contours, NULL);
 		cvShowImage("Disparity Contours", disparity_contours);
 
 		// find polygons in the RGB data
+		fprintf(stdout, "RGB Contours (X,Y)\n");
 		cvSmooth(image_rgb, image_rgb, CV_GAUSSIAN, 5, 5, 0, 0);
 		IplImage* image_gray = cvCreateImage(cvGetSize(image_rgb), IPL_DEPTH_8U, 1);
 		cvCvtColor(image_rgb, image_gray, CV_RGB2GRAY);
@@ -332,7 +442,7 @@ int main(int argc, char **argv)
 
 		cvShowImage("Edges", image_edges);
 		IplImage* rgb_contours = cvCreateImage(cvGetSize(image_edges), IPL_DEPTH_8U, 1);
-		cvCopy( detect_contours(image_edges), rgb_contours, NULL);
+		cvCopy( detect_contours(image_edges, DEPTH_CONTOURS), rgb_contours, NULL);
 		cvShowImage("RGB Contours", rgb_contours);
 
 //		CvSeq* results = cvHoughLines2(image_edges, storage, CV_HOUGH_STANDARD, 2.0, 2.0, image_edges->width / 10, 0, 0);
@@ -348,13 +458,17 @@ int main(int argc, char **argv)
 			coord_str[coord_str_len] = '\0';
 			cvPutText(image_rgb, coord_str, cvPoint(x_click, y_click), &font, cvScalar(255, 255, 255, 0));
 		}
-		cvShowImage(WINDOW_RGB, image_rgb);
-//		cvShowImage(WINDOW_DEPTH, GlViewColor(depth));
-		cvShowImage(WINDOW_DEPTH, image_depth);
-//		cvShowImage(WINDOW_DEPTH, depth);
+		cvShowImage(windows_name_rbg, image_rgb);
+//		cvShowImage(windows_name_depth, GlViewColor(depth));
+		cvShowImage(windows_name_depth, image_depth);
+//		cvShowImage(windows_name_depth, depth);
 		key = cvWaitKey(1000/PROCESS_FPS);
 		adjust_offset(key, &x_offset, &y_offset);
 	}
+
+
+	// return the camera default tilt
+	freenect_sync_set_tilt_degs(0, 0);
 
 	return 0;
 }
