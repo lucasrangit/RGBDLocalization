@@ -75,4 +75,11 @@ Notes
  1. http://stackoverflow.com/questions/279410/opencv-object-detection-center-point
  1. http://computer-vision-talks.com/2011/11/pose-estimation-problem/
  1. http://www.aishack.in/2010/01/an-introduction-to-contours/
- 1. 
+
+Landmark Navigation
+ 1. http://www.eng.yale.edu/ee-labs/morse/other/pos96ch7.pdf
+ 1. http://www-personal.umich.edu/~johannb/Papers/paper64.pdf
+
+Vision-Based Positioning
+ 1. http://www.eng.yale.edu/ee-labs/morse/other/pos96ch9.pdf
+
