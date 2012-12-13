@@ -17,7 +17,9 @@
 enum {
 	PROCESS_FPS = 2,
 	CONTOUR_AREA_MIN = 2000, // @TODO automatically determine area for smallest and largest ceiling light
-	CONTOUR_AREA_MAX = 9000
+	CONTOUR_AREA_MAX = 9000,
+	CONTOUR_AREA_DIFFERENCE 	= 500,	// maximum difference between the potential matching contours
+	CONTOUR_POSITION_DIFFERENCE = 100	// maximum
 };
 
 // Kinect's maximum tilt (from libfreenect header)
@@ -38,7 +40,7 @@ static int x_click = -1;
 static int y_click = -1;
 static int canny_low = 80;
 static int canny_high = 100;
-static bool clear = 0;
+static bool reinitialize = 0;
 
 struct stats {
 	int count;
@@ -175,7 +177,8 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 	}
 }
 
-static void get_cv_info() {
+static void get_cv_info()
+{
 	const char* libraries;
 	const char* modules;
 	// Using cvGetModuleInfo() to check for IPP
@@ -184,13 +187,15 @@ static void get_cv_info() {
 }
 
 /*
- * Find contours of ceiling lights.
+ * Find contours in an image and return a new image with the contours drawn.
+ * This function performs a filter on the shapes to identify quadrilaterals
+ * in the shape of a ceiling light: is convex, has 4 vertices, and a certain size.
  */
 static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_index)
 {
-	CvSeq* contours;
-	CvSeq* result;
-	CvMemStorage *storage = cvCreateMemStorage(0);
+	CvSeq* contours; // linked list of contours
+	CvSeq* result; // pointer to single contour
+	CvMemStorage *storage = cvCreateMemStorage(0); // storage for contour linked list
 	static IplImage* ret = NULL;
 	if (!ret) ret = cvCreateImage(cvGetSize(img), 8, 1);
 	cvZero(ret);
@@ -226,36 +231,37 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.02, 0);
 		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
 
-
-		// for calibration, keep running statistics, initialized for each frame
-		// skip contours of zero area
-		if (area)
-		{
-			stats_array[stats_index].count++;
-			stats_array[stats_index].average = (stats_array[stats_index].average + area)/stats_array[stats_index].count;
-			stats_array[stats_index].min     = MIN(stats_array[stats_index].min, area);
-			stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
-		}
-
 		if ((4 == result->total)  && // has 4 vertices
-			(area > CONTOUR_AREA_MIN) && // has sufficient area
+			(area > CONTOUR_AREA_MIN) && // has "reasonable" area
 			(area < CONTOUR_AREA_MAX) &&
 			(cvCheckContourConvexity(result))) // is convex
 		{
 			CvPoint *pt[4];
-			for( i=0; i<4; i++)
+			for ( i = 0; i < 4; i++)
 				pt[i] = (CvPoint*)cvGetSeqElem(result, i);
+
+			if (area)
+			{
+				// keep running statistics for each frame
+				stats_array[stats_index].count  += 1;
+				stats_array[stats_index].average = (stats_array[stats_index].average + area)/stats_array[stats_index].count;
+				stats_array[stats_index].min     = MIN(stats_array[stats_index].min, area);
+				stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
+			}
+
 			// draw contour
 			{
 				//CvScalar line_color = color_pallete[contour_index]; // use with color image
 				CvScalar line_color = cvScalarAll(255); // use with black and white image
-				int line_thickness = contour_index+1;
+				int line_thickness = contour_index+1; // vary the thickness so that contours can be distinguished in black and white
 				cvLine(ret, *pt[0], *pt[1], line_color, line_thickness, 8, 0);
 				cvLine(ret, *pt[1], *pt[2], line_color, line_thickness, 8, 0);
 				cvLine(ret, *pt[2], *pt[3], line_color, line_thickness, 8, 0);
 				cvLine(ret, *pt[3], *pt[0], line_color, line_thickness, 8, 0);
 			}
+
 			fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
+
 			if ( contour_index < color_pallete_index_max)
 				contour_index++; // stop at white
 		}
@@ -274,46 +280,49 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
  * Note, after making certain changes (such as shifting) any images that
  * are comprised of multiple samples must be cleared.
  */
-static void adjust_offset(char key, int *x_offset, int *y_offset) {
+static void adjust_offset(char key, int *x_offset, int *y_offset)
+{
 	switch (key)
 	{
-	case -1:
-	case 'q':
-		break;
 	case 81: // left
 		*x_offset -= 1;
-		clear = true;
+		reinitialize = true;
 		break;
 	case 82: // up
 		*y_offset -= 1;
-		clear = true;
+		reinitialize = true;
 		break;
 	case 83: // right
 		*x_offset += 1;
-		clear = true;
+		reinitialize = true;
 		break;
 	case 84: // down
 		*y_offset += 1;
-		clear = true;
+		reinitialize = true;
 		break;
 	case '-': // scale down
 		// @todo
-		clear = true;
+		reinitialize = true;
 		break;
 	case '=': // scale up
 		// @todo
-		clear = true;
+		reinitialize = true;
 		break;
 	case 'c':
 		// clear
-		clear = true;
+		reinitialize = true;
 		break;
+	case -1:
+		// no key
+	case 'q':
+		// main loop will handle exit
 	default:
+		// nothing to adjust
 		break;
 	}
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
 	CvFont font;
 	char key;
@@ -325,7 +334,6 @@ int main(int argc, char **argv)
 	cvNamedWindow( windows_name_rbg, CV_WINDOW_AUTOSIZE);
 	cvSetMouseCallback( windows_name_rbg, mouseHandler, NULL );
 	freenect_raw_tilt_state *state = 0;
-
 
 //	get_cv_info();
 
@@ -399,12 +407,11 @@ int main(int argc, char **argv)
 		IplImage *image_mask = cvCreateImage( cvGetSize(image_depth_gray), IPL_DEPTH_8U, 1);
 		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY);
 
-		// take multiple samples of the depth
-		// this fills in the depth mask
-		if (clear)
+		if (reinitialize)
 		{
 			int i;
-			clear = false;
+			reinitialize = false;
+			// clear statistics
 			for (i = 0; i < STATS_ARRAY_DIMENSIONS; ++i)
 			{
 				stats_array[i].average = 0;
@@ -412,10 +419,14 @@ int main(int argc, char **argv)
 				stats_array[i].min     = INT32_MAX;
 				stats_array[i].max     = 0.0;
 			}
+			// initialize the mask
 			cvZero(image_mask_smooth);
 		}
-		cvAdd( image_mask, image_mask_smooth, image_mask_smooth, NULL);
-//		cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL);
+
+		// take multiple samples of the depth
+		// this fills in the depth mask
+		cvAdd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // adding multiple samples _grows_ the mask
+//		cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // anding multiple samples _shrinks_ the mask
 		cvShowImage("Mask Smooth", image_mask_smooth);
 
 #if 0
@@ -462,10 +473,12 @@ int main(int argc, char **argv)
 //		cvShowImage(windows_name_depth, GlViewColor(depth));
 		cvShowImage(windows_name_depth, image_depth);
 //		cvShowImage(windows_name_depth, depth);
+
+		// wait for a key and time delay
 		key = cvWaitKey(1000/PROCESS_FPS);
+		// shift depth image if necessary
 		adjust_offset(key, &x_offset, &y_offset);
 	}
-
 
 	// return the camera default tilt
 	freenect_sync_set_tilt_degs(0, 0);
