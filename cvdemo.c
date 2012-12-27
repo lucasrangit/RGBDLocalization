@@ -382,6 +382,7 @@ void test_cvFindExtrinsicCameraParams2()
 void test_cvFindHomography()
 {
 	CvPoint2D32f src[4], dst[4]; // source and destination 2D coordinates
+
 }
 
 int main(int argc, char *argv[])
