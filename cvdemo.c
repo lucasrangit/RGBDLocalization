@@ -38,9 +38,12 @@ static const char windows_name_depth[] 	= "Depth";
 
 static int x_click = -1;
 static int y_click = -1;
+
 static int canny_low = 80;
 static int canny_high = 100;
+
 static bool reinitialize = 0;
+
 
 struct stats {
 	int count;
@@ -58,6 +61,9 @@ static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
 		{ 0, 0, INT32_MAX, 0.0 },
 		{ 0, 0, INT32_MAX, 0.0 }
 	};
+
+enum { LANDMARK_COUNT_MAX = 10 };
+static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX];
 
 #if 0
 /*
@@ -240,9 +246,15 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 			for ( i = 0; i < 4; i++)
 				pt[i] = (CvPoint*)cvGetSeqElem(result, i);
 
+			// save the contour as a potential landmark
+			{
+				CvContour *contour = (CvContour*)result;
+				potential_landmarks[stats_index][contour_index] = *contour;
+			}
+
+			// keep running statistics for each frame
 			if (area)
 			{
-				// keep running statistics for each frame
 				stats_array[stats_index].count  += 1;
 				stats_array[stats_index].average = (stats_array[stats_index].average + area)/stats_array[stats_index].count;
 				stats_array[stats_index].min     = MIN(stats_array[stats_index].min, area);
@@ -322,6 +334,56 @@ static void adjust_offset(char key, int *x_offset, int *y_offset)
 	}
 }
 
+/**
+ * Trying to figure out how this works based on
+ * http://opencv.willowgarage.com/documentation/camera_calibration_and_3d_reconstruction.html#findextrinsiccameraparams2
+ */
+void test_cvFindExtrinsicCameraParams2()
+{
+	// The array of object points in the object coordinate space, 3xN or Nx3 1-channel, or 1xN or Nx1 3-channel, where N is the number of points.
+	CvMat* object_points = cvCreateMat( 3, 3, CV_32FC1);
+	// The array of corresponding image points, 2xN or Nx2 1-channel or 1xN or Nx1 2-channel, where N is the number of points.
+	CvMat* image_points  = cvCreateMat( 3, 3, CV_32FC1);
+
+	// camera and lens model
+	CvMat* intrinsic_matrix  = cvCreateMat( 3, 3, CV_32FC1);
+	CvMat* distortion_coeffs = NULL; // If it is NULL, all of the distortion coefficients are set to 0
+
+	// output
+	CvMat* rotation_vector    = cvCreateMat( 3, 1, CV_32F);
+	CvMat* translation_vector = cvCreateMat( 3, 1, CV_32F);
+
+	// Using the RGB camera intrinsics calculated at http://nicolas.burrus.name/index.php/Research/KinectCalibration
+	float fx_rgb = 5.2921508098293293e+02;
+	float fy_rgb = 5.2556393630057437e+02;
+	float cx_rgb = 3.2894272028759258e+02;
+	float cy_rgb = 2.6748068171871557e+02;
+
+	// Camera intrinsic matrix:
+	//     [ fx, 0,  cx ]
+	// K = [ 0,  fx, cy ]
+	//     [ 0,  0,  1  ]
+	*( (float*)CV_MAT_ELEM_PTR( *intrinsic_matrix, 0, 0 ) ) = fx_rgb;
+	*( (float*)CV_MAT_ELEM_PTR( *intrinsic_matrix, 1, 1 ) ) = fy_rgb;
+	*( (float*)CV_MAT_ELEM_PTR( *intrinsic_matrix, 0, 2 ) ) = cx_rgb;
+	*( (float*)CV_MAT_ELEM_PTR( *intrinsic_matrix, 1, 2 ) ) = cy_rgb;
+	*( (float*)CV_MAT_ELEM_PTR( *intrinsic_matrix, 2, 2 ) ) = 1.0;
+
+	cvFindExtrinsicCameraParams2( object_points, image_points, intrinsic_matrix, distortion_coeffs, rotation_vector, translation_vector, 0);
+
+	// release the data
+	cvReleaseMat(&object_points);
+	cvReleaseMat(&image_points);
+	cvReleaseMat(&intrinsic_matrix);
+	cvReleaseMat(&distortion_coeffs);
+	cvReleaseMat(&rotation_vector);
+	cvReleaseMat(&translation_vector);
+}
+void test_cvFindHomography()
+{
+	CvPoint2D32f src[4], dst[4]; // source and destination 2D coordinates
+}
+
 int main(int argc, char *argv[])
 {
 	CvFont font;
@@ -337,6 +399,10 @@ int main(int argc, char *argv[])
 
 //	get_cv_info();
 
+//	test_cvFindExtrinsicCameraParams2();
+
+	test_cvFindHomography();
+
 	if (freenect_sync_set_tilt_degs(MAX_TILT_ANGLE, 0)) {
 	    printf("Error: Kinect not connected?\n");
 	    return -1;
@@ -349,7 +415,8 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	} while (TILT_STATUS_STOPPED != state->tilt_status);
-	sleep(1); // @bug motor doesn't report correct state consistently
+
+	sleep(1); // @bug motor doesn't report correct state
 
 	// process frames indefinitely at the rate defined by PROCESS_FPS
 	// quit when user presses 'q'
@@ -457,6 +524,24 @@ int main(int argc, char *argv[])
 		cvShowImage("RGB Contours", rgb_contours);
 
 //		CvSeq* results = cvHoughLines2(image_edges, storage, CV_HOUGH_STANDARD, 2.0, 2.0, image_edges->width / 10, 0, 0);
+
+		// find matching contours
+		if (0) {
+			int rgb_index;
+			int depth_index;
+			for ( rgb_index = 0; rgb_index < LANDMARK_COUNT_MAX; ++rgb_index)
+			{
+				for ( depth_index = 0; depth_index < LANDMARK_COUNT_MAX; ++depth_index)
+				{
+					double rgb_area = fabs(cvContourArea( &potential_landmarks[RGB_CONTOURS][rgb_index], CV_WHOLE_SEQ, 0));
+					double depth_area = fabs(cvContourArea( &potential_landmarks[DEPTH_CONTOURS][depth_index], CV_WHOLE_SEQ, 0));
+					double area_difference = fabs(rgb_area - depth_area);
+					if ( CONTOUR_AREA_DIFFERENCE > area_difference)
+						// we have a match
+						break;
+				}
+			}
+		}
 
 		if (-1 != x_click && -1 != y_click)
 		{
