@@ -83,3 +83,6 @@ Landmark Navigation
 Vision-Based Positioning
  1. http://www.eng.yale.edu/ee-labs/morse/other/pos96ch9.pdf
 
+Courses
+ 1. http://www.ccs.neu.edu/course/cs7380/f10/
+
