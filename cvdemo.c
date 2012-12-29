@@ -16,8 +16,8 @@
  */
 enum {
 	PROCESS_FPS = 2,
-	CONTOUR_AREA_MIN = 2000, // @TODO automatically determine area for smallest and largest ceiling light
-	CONTOUR_AREA_MAX = 9000,
+	CONTOUR_AREA_MIN = 1000, // @TODO automatically determine area for smallest and largest ceiling light
+	CONTOUR_AREA_MAX = 10000,
 	CONTOUR_AREA_DIFFERENCE 	= 500,	// maximum difference between the potential matching contours
 	CONTOUR_POSITION_DIFFERENCE = 100	// maximum
 };
@@ -143,6 +143,7 @@ static IplImage *kinect_disparity_filter(IplImage *depth)
 			depth_color[3*i+BGR_GREEN_INDEX]	= 255;
 			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
 		}
+		// @TODO experiment with setting anything equal to 2047 to 1 only.
 	}
 	return image;
 }
@@ -196,6 +197,7 @@ static void get_cv_info()
  * Find contours in an image and return a new image with the contours drawn.
  * This function performs a filter on the shapes to identify quadrilaterals
  * in the shape of a ceiling light: is convex, has 4 vertices, and a certain size.
+ * TODO: consider adding a slider to the window for adjusting the thresholds
  */
 static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_index)
 {
@@ -232,6 +234,22 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 	cvCopy(img, temp, NULL);
 //	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
+
+	// draw contours using the cvDrawContours()
+	if (0) // disabled, work in progress
+	{
+		IplImage* image_all_contours = cvCreateImage(cvGetSize(img), 8, 1);
+		cvCopy(img, image_all_contours, NULL);
+		int contour = contours; // first contour
+		// TODO need for loop to iterate through sequence
+		cvDrawContours( image_all_contours, contours, cvScalarAll(255), cvScalarAll(0), 0, CV_FILLED, 8, cvPoint(0,0));
+
+		//cvNamedWindow( "All contours", CV_WINDOW_AUTOSIZE);
+		cvShowImage( "All contours", image_all_contours);
+		cvReleaseImage(&image_all_contours);
+	}
+
+	// iterate through the contour tree and filter out the ceiling lights
 	while (contours)
 	{
 		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.02, 0);
@@ -261,7 +279,7 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 				stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
 			}
 
-			// draw contour
+			// draw contour using the verticies so that we can adjust the color and thickness of each
 			{
 				//CvScalar line_color = color_pallete[contour_index]; // use with color image
 				CvScalar line_color = cvScalarAll(255); // use with black and white image
@@ -400,6 +418,7 @@ int main(int argc, char *argv[])
 
 //	get_cv_info();
 
+	// Camera Calibration
 //	test_cvFindExtrinsicCameraParams2();
 
 	test_cvFindHomography();
@@ -566,7 +585,7 @@ int main(int argc, char *argv[])
 		adjust_offset(key, &x_offset, &y_offset);
 	}
 
-	// return the camera default tilt
+	// return the camera horizontal tilt
 	freenect_sync_set_tilt_degs(0, 0);
 
 	return 0;
