@@ -403,6 +403,32 @@ void test_cvFindHomography()
 
 }
 
+// experimenting with http://opencv.willowgarage.com/documentation/operations_on_arrays.html#cvSolve
+void test_cvSolve()
+{
+	// coefficient matrix
+	CvMat* matA = cvCreateMat( 2, 2, CV_32FC1 );
+	cvSetZero(matA); // set all to zero in case we forgot to set an element
+	*( (float*)CV_MAT_ELEM_PTR( *matA, 0, 0 ) ) = 3;
+	*( (float*)CV_MAT_ELEM_PTR( *matA, 0, 1 ) ) = -1;
+	*( (float*)CV_MAT_ELEM_PTR( *matA, 1, 0 ) ) = -5;
+	*( (float*)CV_MAT_ELEM_PTR( *matA, 1, 1 ) ) = 4;
+	CvMat* matB = cvCreateMat( 2, 1, CV_32FC1 );
+	cvSetZero(matB);
+	*( (float*)CV_MAT_ELEM_PTR( *matB, 0, 0 ) ) = 7;
+	*( (float*)CV_MAT_ELEM_PTR( *matB, 1, 0 ) ) = -2;
+	CvMat* matX = cvCreateMat( 2, 1, CV_32FC1 );
+	cvSetZero(matX);
+	int return_code = 0;
+
+
+	return_code = cvSolve( matA, matB, matX, CV_LU);
+
+	float x = CV_MAT_ELEM( *matX, float, 0, 0 );
+	float y = CV_MAT_ELEM( *matX, float, 1, 0 );
+
+}
+
 int main(int argc, char *argv[])
 {
 	CvFont font;
@@ -420,6 +446,8 @@ int main(int argc, char *argv[])
 
 	// Camera Calibration
 //	test_cvFindExtrinsicCameraParams2();
+
+	test_cvSolve();
 
 	test_cvFindHomography();
 
