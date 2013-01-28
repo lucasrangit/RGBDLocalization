@@ -466,31 +466,48 @@ void test_findCentroid()
 	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroidX, centroidY, area);
 }
 
+static float scale_cartician( float point, float scale, float center)
+{
+	return (point*scale + center*(1-scale));
+}
+
+/**
+ * Dilate a quadrilateral about a point.
+ * TODO: evaluate another algorithm that works for convex or concave:
+ *       http://stackoverflow.com/questions/7995547/enlarge-and-restrict-a-quadrilateral-polygon-in-opencv-2-3-with-c
+ * @param[in] verticies going ccw
+ */
+void dilateQuadAboutCenter( CvPoint2D32f vertices[4], CvPoint2D32f origin, float scale)
+{
+	vertices[0].x = scale_cartician(vertices[0].x, scale, origin.x); vertices[0].y = scale_cartician(vertices[0].y, scale, origin.y);
+	vertices[1].x = scale_cartician(vertices[1].x, scale, origin.x); vertices[1].y = scale_cartician(vertices[1].y, scale, origin.y);
+	vertices[2].x = scale_cartician(vertices[2].x, scale, origin.x); vertices[2].y = scale_cartician(vertices[2].y, scale, origin.y);
+	vertices[3].x = scale_cartician(vertices[3].x, scale, origin.x); vertices[3].y = scale_cartician(vertices[3].y, scale, origin.y);
+}
+
 void test_dilateQuadAboutCenter()
 {
-	CvPoint2D32f ptA;
-	CvPoint2D32f ptB;
-	CvPoint2D32f ptC;
-	CvPoint2D32f ptD;
+	CvPoint2D32f ptA[4];
+	CvPoint2D32f ptB[4];
 	CvPoint2D32f center;
-	float scale = 2;
+	float scale;
 
-	ptA.x = 1; ptA.y = 1;
-	ptB.x = 2; ptB.y = 1;
-	ptC.x = 2; ptC.y = 2;
-	ptD.x = 1; ptD.y = 2;
+	// define a test quad
+	ptA[0].x = 0.5; ptA[0].y = 0.5;
+	ptA[1].x = 2.5; ptA[1].y = 0.5;
+	ptA[2].x = 2.5; ptA[2].y = 2.5;
+	ptA[3].x = 0.5; ptA[3].y = 2.5;
 
+	// keep a copy of original
+	memcpy( ptB, ptA, sizeof(ptA));
+
+	// use center of quad
+	// TODO: calculate center
 	center.x = 1.5; center.y = 1.5;
 
-	CvPoint2D32f pt2A;
-	CvPoint2D32f pt2B;
-	CvPoint2D32f pt2C;
-	CvPoint2D32f pt2D;
-
-	pt2A.x = ptA.x*scale - center.x; pt2A.y = ptA.y*scale - center.y;
-	pt2B.x = ptB.x*scale - center.x; pt2B.y = ptB.y*scale - center.y;
-	pt2C.x = ptC.x*scale - center.x; pt2C.y = ptC.y*scale - center.y;
-	pt2D.x = ptD.x*scale - center.x; pt2D.y = ptD.y*scale - center.y;
+	// scale quad
+	scale = 0.5;
+	dilateQuadAboutCenter( ptB, center, scale);
 }
 
 int main(int argc, char *argv[])
@@ -606,10 +623,12 @@ int main(int argc, char *argv[])
 			cvZero(image_mask_smooth);
 		}
 
-		// take multiple samples of the depth
-		// this fills in the depth mask
+		// take multiple samples of the depth because it's noisy
+		// Adding fills in the depth mask
 		cvAdd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // adding multiple samples _grows_ the mask
-		//		cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // anding multiple samples _shrinks_ the mask
+		// Anding removes pixels
+		//cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // anding multiple samples _shrinks_ the mask
+		// TODO: need to adding multiple image_masks in order to only use pixels that are set in all n frames
 		cvShowImage("Mask Smooth", image_mask_smooth);
 
 #if 0
