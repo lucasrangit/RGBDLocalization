@@ -468,7 +468,29 @@ void test_findCentroid()
 
 void test_dilateQuadAboutCenter()
 {
+	CvPoint2D32f ptA;
+	CvPoint2D32f ptB;
+	CvPoint2D32f ptC;
+	CvPoint2D32f ptD;
+	CvPoint2D32f center;
+	float scale = 2;
 
+	ptA.x = 1; ptA.y = 1;
+	ptB.x = 2; ptB.y = 1;
+	ptC.x = 2; ptC.y = 2;
+	ptD.x = 1; ptD.y = 2;
+
+	center.x = 1.5; center.y = 1.5;
+
+	CvPoint2D32f pt2A;
+	CvPoint2D32f pt2B;
+	CvPoint2D32f pt2C;
+	CvPoint2D32f pt2D;
+
+	pt2A.x = ptA.x*scale - center.x; pt2A.y = ptA.y*scale - center.y;
+	pt2B.x = ptB.x*scale - center.x; pt2B.y = ptB.y*scale - center.y;
+	pt2C.x = ptC.x*scale - center.x; pt2C.y = ptC.y*scale - center.y;
+	pt2D.x = ptD.x*scale - center.x; pt2D.y = ptD.y*scale - center.y;
 }
 
 int main(int argc, char *argv[])
