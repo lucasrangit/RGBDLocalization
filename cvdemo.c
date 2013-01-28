@@ -57,10 +57,10 @@ typedef enum stats_array_index {
 	STATS_ARRAY_DIMENSIONS
 } stats_array_index;
 static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
-	{
+{
 		{ 0, 0, INT32_MAX, 0.0 },
 		{ 0, 0, INT32_MAX, 0.0 }
-	};
+};
 
 enum { LANDMARK_COUNT_MAX = 10 };
 static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX];
@@ -156,13 +156,13 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 		/* left button down */
 		x_click = x;
 		y_click = y;
-//		fprintf(stdout, "Left button down (%d, %d).\n", x, y);
+		//		fprintf(stdout, "Left button down (%d, %d).\n", x, y);
 		break;
 	case CV_EVENT_LBUTTONDBLCLK:
 		break;
 	case CV_EVENT_RBUTTONDOWN:
 		/* right button down */
-//		fprintf(stdout, "Right button down (%d, %d).\n", x, y);
+		//		fprintf(stdout, "Right button down (%d, %d).\n", x, y);
 		break;
 	case CV_EVENT_RBUTTONDBLCLK:
 		break;
@@ -213,13 +213,13 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 	int contour_index = 0;
 	CvScalar color_pallete[] =
 	{
-		CV_RGB( 255, 0, 0 ), 	// red
-		CV_RGB( 0, 255, 0 ), 	// green
-		CV_RGB( 0, 0, 255 ), 	// blue
-		CV_RGB( 255, 255, 0 ), 	//
-		CV_RGB( 255, 0, 255 ), 	//
-		CV_RGB( 0, 255, 255 ), 	//
-		CV_RGB( 255, 255, 255 ) // white
+			CV_RGB( 255, 0, 0 ), 	// red
+			CV_RGB( 0, 255, 0 ), 	// green
+			CV_RGB( 0, 0, 255 ), 	// blue
+			CV_RGB( 255, 255, 0 ), 	//
+			CV_RGB( 255, 0, 255 ), 	//
+			CV_RGB( 0, 255, 255 ), 	//
+			CV_RGB( 255, 255, 255 ) // white
 	};
 	int color_pallete_index_max = sizeof(color_pallete)/sizeof(CvScalar) - 1;
 
@@ -232,7 +232,7 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 	}
 
 	cvCopy(img, temp, NULL);
-//	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
+	//	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 
 	// draw contours using the cvDrawContours()
@@ -256,9 +256,9 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
 
 		if ((4 == result->total)  && // has 4 vertices
-			(area > CONTOUR_AREA_MIN) && // has "reasonable" area
-			(area < CONTOUR_AREA_MAX) &&
-			(cvCheckContourConvexity(result))) // is convex
+				(area > CONTOUR_AREA_MIN) && // has "reasonable" area
+				(area < CONTOUR_AREA_MAX) &&
+				(cvCheckContourConvexity(result))) // is convex
 		{
 			CvPoint *pt[4];
 			for ( i = 0; i < 4; i++)
@@ -428,6 +428,48 @@ void test_cvSolve()
 	float y = CV_MAT_ELEM( *matX, float, 1, 0 );
 
 }
+/**
+ * Quadrilateral Centroid Algorithm
+ *
+ * @author Filipi Vianna
+ * @ref http://filipivianna.blogspot.com/2009/11/quadrilateral-centroid-algorithm.html
+ */
+void test_findCentroid()
+{
+	float verticesX[5];
+	float verticesY[5];
+	float centroidX = 0;
+	float centroidY = 0;
+
+	verticesX[0] = 1; verticesY[0] = 1;
+	verticesX[1] = 2; verticesY[1] = 1;
+	verticesX[2] = 2; verticesY[2] = 2;
+	verticesX[3] = 1; verticesY[3] = 2;
+	verticesX[4] = verticesX[0]; verticesY[4] = verticesY[0]; // Repeat the first vertex
+
+	int i, k;
+	float area = 0.0f;
+	float tmp = 0.0f;
+
+	for (i = 0; i <= 4; i++){
+		k = (i + 1) % (4 + 1);
+		tmp = verticesX[i] * verticesY[k] -
+				verticesX[k] * verticesY[i];
+		area += tmp;
+		centroidX += (verticesX[i] + verticesX[k]) * tmp;
+		centroidY += (verticesY[i] + verticesY[k]) * tmp;
+	}
+	area *= 0.5f;
+	centroidX *= 1.0f / (6.0f * area);
+	centroidY *= 1.0f / (6.0f * area);
+
+	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroidX, centroidY, area);
+}
+
+void test_dilateQuadAboutCenter()
+{
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -442,18 +484,22 @@ int main(int argc, char *argv[])
 	cvSetMouseCallback( windows_name_rbg, mouseHandler, NULL );
 	freenect_raw_tilt_state *state = 0;
 
-//	get_cv_info();
+	//	get_cv_info();
 
 	// Camera Calibration
-//	test_cvFindExtrinsicCameraParams2();
+	//	test_cvFindExtrinsicCameraParams2();
 
 	test_cvSolve();
 
 	test_cvFindHomography();
 
+	test_findCentroid();
+
+	test_dilateQuadAboutCenter();
+
 	if (freenect_sync_set_tilt_degs(MAX_TILT_ANGLE, 0)) {
-	    printf("Error: Kinect not connected?\n");
-	    return -1;
+		printf("Error: Kinect not connected?\n");
+		return -1;
 	}
 
 	// wait for motor to stop moving before capturing images
@@ -472,15 +518,15 @@ int main(int argc, char *argv[])
 	{
 		IplImage *image_rgb = freenect_sync_get_rgb_cv(0);
 		if (!image_rgb) {
-		    printf("Error: Kinect not connected?\n");
-		    return -1;
+			printf("Error: Kinect not connected?\n");
+			return -1;
 		}
 		cvCvtColor(image_rgb, image_rgb, CV_RGB2BGR);
 
 		IplImage *image_disparity = freenect_sync_get_depth_cv(0);
 		if (!image_disparity) {
-		    printf("Error: Kinect not connected?\n");
-		    return -1;
+			printf("Error: Kinect not connected?\n");
+			return -1;
 		}
 		IplImage *image_depth = kinect_disparity_filter(image_disparity);
 
@@ -541,7 +587,7 @@ int main(int argc, char *argv[])
 		// take multiple samples of the depth
 		// this fills in the depth mask
 		cvAdd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // adding multiple samples _grows_ the mask
-//		cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // anding multiple samples _shrinks_ the mask
+		//		cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // anding multiple samples _shrinks_ the mask
 		cvShowImage("Mask Smooth", image_mask_smooth);
 
 #if 0
@@ -571,7 +617,7 @@ int main(int argc, char *argv[])
 		cvCopy( detect_contours(image_edges, DEPTH_CONTOURS), rgb_contours, NULL);
 		cvShowImage("RGB Contours", rgb_contours);
 
-//		CvSeq* results = cvHoughLines2(image_edges, storage, CV_HOUGH_STANDARD, 2.0, 2.0, image_edges->width / 10, 0, 0);
+		//		CvSeq* results = cvHoughLines2(image_edges, storage, CV_HOUGH_STANDARD, 2.0, 2.0, image_edges->width / 10, 0, 0);
 
 		// find matching contours
 		if (0) {
@@ -597,15 +643,15 @@ int main(int argc, char *argv[])
 			int coord_str_len = strlen(coord_str);
 			int pixel_disparity = ((short *) image_disparity->imageData)[y_click * 640 + x_click];
 			sprintf(coord_str, "%03d,%03d,%04d", x_click, y_click, pixel_disparity);
-//			float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
-//			sprintf(coord_str, "%03d,%03d,%02.03f", x_click, y_click, pixel_depth_meters);
+			//			float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
+			//			sprintf(coord_str, "%03d,%03d,%02.03f", x_click, y_click, pixel_depth_meters);
 			coord_str[coord_str_len] = '\0';
 			cvPutText(image_rgb, coord_str, cvPoint(x_click, y_click), &font, cvScalar(255, 255, 255, 0));
 		}
 		cvShowImage(windows_name_rbg, image_rgb);
-//		cvShowImage(windows_name_depth, GlViewColor(depth));
+		//		cvShowImage(windows_name_depth, GlViewColor(depth));
 		cvShowImage(windows_name_depth, image_depth);
-//		cvShowImage(windows_name_depth, depth);
+		//		cvShowImage(windows_name_depth, depth);
 
 		// wait for a key and time delay
 		key = cvWaitKey(1000/PROCESS_FPS);
