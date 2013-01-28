@@ -462,7 +462,7 @@ int main(int argc, char *argv[])
 			printf("Error: Kinect not connected?\n");
 			return -1;
 		}
-	} while (TILT_STATUS_STOPPED != state->tilt_status);
+	} while (TILT_STATUS_MOVING == state->tilt_status);
 
 	sleep(1); // @bug motor doesn't report correct state
 
