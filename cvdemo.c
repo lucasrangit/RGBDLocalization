@@ -8,30 +8,7 @@
 #include <libfreenect.h>
 #include <libfreenect_sync.h>
 #include "libfreenect_cv.h"
-
-/*
- * How many frames to process per second depends on the application.
- * Tune this based of the performance of the CPU.
- * Sensor over USB cannot handle more than 30 FPS.
- */
-enum {
-	PROCESS_FPS = 2,
-	CONTOUR_AREA_MIN = 1000, // @TODO automatically determine area for smallest and largest ceiling light
-	CONTOUR_AREA_MAX = 10000,
-	CONTOUR_AREA_DIFFERENCE 	= 500,	// maximum difference between the potential matching contours
-	CONTOUR_POSITION_DIFFERENCE = 100	// maximum
-};
-
-// Kinect's maximum tilt (from libfreenect header)
-enum { MAX_TILT_ANGLE = 31 };
-
-// Channel index for BGR images
-enum {
-	BGR_BLUE_INDEX	= 0,
-	BGR_GREEN_INDEX	= 1,
-	BGR_RED_INDEX	= 3
-};
-
+#include "rgbdlocalization.h"
 
 static const char windows_name_rbg[] 	= "RBG";
 static const char windows_name_depth[] 	= "Depth";
@@ -44,109 +21,13 @@ static int canny_high = 100;
 
 static bool reinitialize = 0;
 
-
-struct stats {
-	int count;
-	double average;
-	double min;
-	double max;
-};
-typedef enum stats_array_index {
-	RGB_CONTOURS = 0,
-	DEPTH_CONTOURS,
-	STATS_ARRAY_DIMENSIONS
-} stats_array_index;
 static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
 {
 		{ 0, 0, INT32_MAX, 0.0 },
 		{ 0, 0, INT32_MAX, 0.0 }
 };
 
-enum { LANDMARK_COUNT_MAX = 10 };
 static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX];
-
-#if 0
-/*
- * From their data, a basic first order approximation for converting the raw
- * 11-bit disparity value to a depth value in centimeters is:
- *   100/(-0.00307 * rawDisparity + 3.33).
- * This approximation is approximately 10 cm off at 4 m away, and less than
- * 2 cm off within 2.5 m.
- */
-static float raw_depth_to_meters(int raw_disparity)
-{
-	float depth = 1.0 / (raw_disparity * -0.0030711016 + 3.3309495161);
-	return depth;
-}
-#else
-/*
- * A better approximation given by Stéphane Magnenat:
- *   distance = 0.1236 * tan(rawDisparity / 2842.5 + 1.1863) in meters.
- * Adding a final offset term of -0.037 centers the original ROS data.
- * The tan approximation has a sum squared difference of .33 cm while the
- * 1/x approximation is about 1.7 cm.
- *
- */
-static float raw_depth_to_meters(int raw_disparity)
-{
-	float depth = 0.1236 * tanf(raw_disparity/2842.5 + 1.1863);
-	return depth;
-}
-#endif
-
-/*
- * Color only value for disparity values in the ranges of interest.
- * Specifically, keep only the "no data" range.
- * @todo remove right no data band
- */
-static IplImage *kinect_disparity_filter(IplImage *depth)
-{
-	static IplImage *image = 0;
-	if (!image) image = cvCreateImage( cvSize(depth->width, depth->height), IPL_DEPTH_8U, 3); // depth->depth Unsigned 8-bit integer (8u)
-	unsigned char *depth_color = (unsigned char*)(image->imageData);
-	int i;
-	for (i = 0; i < 640*480; i++)
-	{
-		int raw_disparity = ((short *)depth->imageData)[i];
-		if (raw_disparity < 242) // (depth_meters < 0.4)
-		{
-			// unknown
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else if (raw_disparity < 658) // (depth_meters < 0.8)
-		{
-			// too close
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else if (raw_disparity < 1006) // (depth_meters < 4.0)
-		{
-			// normal
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else if (raw_disparity < 1050) // (depth_meters < 8.0)
-		{
-			// too far
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else  // if (depth_meters > 8.0)
-		{
-			// unknown
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 255;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		// @TODO experiment with setting anything equal to 2047 to 1 only.
-	}
-	return image;
-}
 
 void mouseHandler(int event, int x, int y, int flags, void *param)
 {
@@ -182,15 +63,6 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 		/* unhandled event */
 		break;
 	}
-}
-
-static void get_cv_info()
-{
-	const char* libraries;
-	const char* modules;
-	// Using cvGetModuleInfo() to check for IPP
-	cvGetModuleInfo(0, &libraries, &modules);
-	printf("Libraries: %s\nModules: %s\n", libraries, modules);
 }
 
 /*
