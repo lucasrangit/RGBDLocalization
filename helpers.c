@@ -4,16 +4,6 @@
  *  Created on: Jan 28, 2013
  *      Author: lucasrangit
  */
-#include <stdio.h>
-#include <stdbool.h>
-//#include <stdlib.h>
-#include <unistd.h>
-#include <math.h>
-#include <cv.h>
-#include <highgui.h>
-#include <libfreenect.h>
-#include <libfreenect_sync.h>
-#include "libfreenect_cv.h"
 #include "rgbdlocalization.h"
 
 #if 0

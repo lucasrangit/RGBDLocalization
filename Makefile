@@ -3,7 +3,7 @@ OCV_LIBS = `pkg-config --cflags --libs opencv`
 
 all: test
 
-test: cvdemo.c libfreenect_cv.c helpers.c
+test: cvdemo.c libfreenect_cv.c helpers.c test.c
 	gcc -Wall -g -o $@ $^ -lfreenect_sync $(OCV_LIBS)
 
 clean:

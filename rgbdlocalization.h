@@ -8,6 +8,17 @@
 #ifndef RGBDLOCALIZATION_H_
 #define RGBDLOCALIZATION_H_
 
+#include <stdio.h>
+#include <stdbool.h>
+//#include <stdlib.h>
+#include <unistd.h>
+#include <math.h>
+#include <cv.h>
+#include <highgui.h>
+#include <libfreenect.h>
+#include <libfreenect_sync.h>
+#include "libfreenect_cv.h"
+
 /*
  * How many frames to process per second depends on the application.
  * Tune this based of the performance of the CPU.
