@@ -13,9 +13,6 @@
 static const char windows_name_rbg[] 	= "RBG";
 static const char windows_name_depth[] 	= "Depth";
 
-//static int x_click = -1;
-//static int y_click = -1;
-
 static int canny_low = 80;
 static int canny_high = 100;
 
@@ -32,14 +29,13 @@ static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX]
 void mouseHandler(int event, int x, int y, int flags, void *param)
 {
 	CvPoint* mouse_click = param;
+	bool handled = true;
 
 	switch (event)
 	{
 	case CV_EVENT_LBUTTONDOWN:
 		/* left button down */
-		fprintf(stdout, "Left button down (%d, %d).\n", x, y);
-//		x_click = x;
-//		y_click = y;
+		fprintf(stdout, "Left button down");
 		mouse_click->x = x;
 		mouse_click->y = y;
 		break;
@@ -47,16 +43,21 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 		break;
 	case CV_EVENT_RBUTTONDOWN:
 		/* right button down */
-		//fprintf(stdout, "Right button down (%d, %d).\n", x, y);
+		fprintf(stdout, "Right button down");
 		break;
 	case CV_EVENT_RBUTTONDBLCLK:
+		fprintf(stdout, "Right button double-click");
 		break;
 	case CV_EVENT_MOUSEMOVE:
 		/* mouse move */
 	default:
 		/* unhandled event */
+		handled = false;
 		break;
 	}
+
+	if (handled)
+		fprintf(stdout, " (%d, %d).\n", x, y);
 }
 
 /*
