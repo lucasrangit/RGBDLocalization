@@ -13,8 +13,8 @@
 static const char windows_name_rbg[] 	= "RBG";
 static const char windows_name_depth[] 	= "Depth";
 
-static int x_click = -1;
-static int y_click = -1;
+//static int x_click = -1;
+//static int y_click = -1;
 
 static int canny_low = 80;
 static int canny_high = 100;
@@ -31,34 +31,28 @@ static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX]
 
 void mouseHandler(int event, int x, int y, int flags, void *param)
 {
+	CvPoint* mouse_click = param;
+
 	switch (event)
 	{
 	case CV_EVENT_LBUTTONDOWN:
 		/* left button down */
-		x_click = x;
-		y_click = y;
-		//		fprintf(stdout, "Left button down (%d, %d).\n", x, y);
+		fprintf(stdout, "Left button down (%d, %d).\n", x, y);
+//		x_click = x;
+//		y_click = y;
+		mouse_click->x = x;
+		mouse_click->y = y;
 		break;
 	case CV_EVENT_LBUTTONDBLCLK:
 		break;
 	case CV_EVENT_RBUTTONDOWN:
 		/* right button down */
-		//		fprintf(stdout, "Right button down (%d, %d).\n", x, y);
+		//fprintf(stdout, "Right button down (%d, %d).\n", x, y);
 		break;
 	case CV_EVENT_RBUTTONDBLCLK:
 		break;
 	case CV_EVENT_MOUSEMOVE:
 		/* mouse move */
-#if 0
-		/* draw a rectangle */
-		//out = cvCloneImage( in);
-		cvRectangle(out,
-				cvPoint(x - 15, y - 15),
-				cvPoint(x + 15, y + 15),
-				cvScalar(0, 0, 255, 0), 2, 8, 0);
-		cvShowImage( "Example1-out", out);
-		break;
-#endif
 	default:
 		/* unhandled event */
 		break;
@@ -392,7 +386,10 @@ int main(int argc, char *argv[])
 	cvZero(image_mask_smooth);
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
 	cvNamedWindow( windows_name_rbg, CV_WINDOW_AUTOSIZE);
-	cvSetMouseCallback( windows_name_rbg, mouseHandler, NULL );
+	CvPoint mouse_click;
+	mouse_click.x = -1; // todo: replace with struct init
+	mouse_click.y = -1;
+	cvSetMouseCallback( windows_name_rbg, mouseHandler, &mouse_click );
 	freenect_raw_tilt_state *state = 0;
 
 	//	get_cv_info();
@@ -550,21 +547,22 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		if (-1 != x_click && -1 != y_click)
+		// write the coordinate and the depth where user has left-clicked
+		if (-1 != mouse_click.x && -1 != mouse_click.y)
 		{
-			char coord_str[] = "640,480,-01.234";
+			char coord_str[] = "640,480,-01.234"; // max coordinate length
 			int coord_str_len = strlen(coord_str);
-			int pixel_disparity = ((short *) image_disparity->imageData)[y_click * 640 + x_click];
-			sprintf(coord_str, "%03d,%03d,%04d", x_click, y_click, pixel_disparity);
-			//			float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
-			//			sprintf(coord_str, "%03d,%03d,%02.03f", x_click, y_click, pixel_depth_meters);
+			int pixel_disparity = ((short *) image_disparity->imageData)[mouse_click.y * 640 + mouse_click.x];
+			sprintf(coord_str, "%03d,%03d,%04d", mouse_click.x, mouse_click.y, pixel_disparity);
+			//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
+			//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
 			coord_str[coord_str_len] = '\0';
-			cvPutText(image_rgb, coord_str, cvPoint(x_click, y_click), &font, cvScalar(255, 255, 255, 0));
+			cvPutText(image_rgb, coord_str, cvPoint(mouse_click.x, mouse_click.y), &font, cvScalar(255, 255, 255, 0));
 		}
 		cvShowImage(windows_name_rbg, image_rgb);
-		//		cvShowImage(windows_name_depth, GlViewColor(depth));
+		//cvShowImage(windows_name_depth, GlViewColor(depth));
 		cvShowImage(windows_name_depth, image_depth);
-		//		cvShowImage(windows_name_depth, depth);
+		//cvShowImage(windows_name_depth, depth);
 
 		// wait for a key and time delay
 		key = cvWaitKey(1000/PROCESS_FPS);
