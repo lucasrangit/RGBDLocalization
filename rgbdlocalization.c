@@ -112,45 +112,53 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.02, 0);
 		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
 
-		if ((4 == result->total)  && // has 4 vertices
-				(area > CONTOUR_AREA_MIN) && // has "reasonable" area
-				(area < CONTOUR_AREA_MAX) &&
-				(cvCheckContourConvexity(result))) // is convex
+		if (4 == result->total)
 		{
-			CvPoint *pt[4];
-			for ( i = 0; i < 4; i++)
-				pt[i] = (CvPoint*)cvGetSeqElem(result, i);
-
-			// save the contour as a potential landmark
+			printf("%f ", area);
+			// has 4 vertices
+			if ((area > CONTOUR_AREA_MIN) &&
+				(area < CONTOUR_AREA_MAX))
 			{
-				CvContour *contour = (CvContour*)result;
-				potential_landmarks[stats_index][contour_index] = *contour;
+				// has "reasonable" area
+				if (cvCheckContourConvexity(result))
+				{
+					// is convex
+					CvPoint *pt[4];
+					for ( i = 0; i < 4; i++)
+						pt[i] = (CvPoint*)cvGetSeqElem(result, i);
+
+					// save the contour as a potential landmark
+					{
+						CvContour *contour = (CvContour*)result;
+						potential_landmarks[stats_index][contour_index] = *contour;
+					}
+
+					// keep running statistics for each frame
+					if (area)
+					{
+						stats_array[stats_index].count  += 1;
+						stats_array[stats_index].average = (stats_array[stats_index].average + area)/stats_array[stats_index].count;
+						stats_array[stats_index].min     = MIN(stats_array[stats_index].min, area);
+						stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
+					}
+
+					// draw contour using the verticies so that we can adjust the color and thickness of each
+					{
+						//CvScalar line_color = color_pallete[contour_index]; // use with color image
+						CvScalar line_color = cvScalarAll(255); // use with black and white image
+						int line_thickness = contour_index+1; // vary the thickness so that contours can be distinguished in black and white
+						cvLine(ret, *pt[0], *pt[1], line_color, line_thickness, 8, 0);
+						cvLine(ret, *pt[1], *pt[2], line_color, line_thickness, 8, 0);
+						cvLine(ret, *pt[2], *pt[3], line_color, line_thickness, 8, 0);
+						cvLine(ret, *pt[3], *pt[0], line_color, line_thickness, 8, 0);
+					}
+
+					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
+
+					if ( contour_index < color_pallete_index_max)
+						contour_index++; // stop at white
+				}
 			}
-
-			// keep running statistics for each frame
-			if (area)
-			{
-				stats_array[stats_index].count  += 1;
-				stats_array[stats_index].average = (stats_array[stats_index].average + area)/stats_array[stats_index].count;
-				stats_array[stats_index].min     = MIN(stats_array[stats_index].min, area);
-				stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
-			}
-
-			// draw contour using the verticies so that we can adjust the color and thickness of each
-			{
-				//CvScalar line_color = color_pallete[contour_index]; // use with color image
-				CvScalar line_color = cvScalarAll(255); // use with black and white image
-				int line_thickness = contour_index+1; // vary the thickness so that contours can be distinguished in black and white
-				cvLine(ret, *pt[0], *pt[1], line_color, line_thickness, 8, 0);
-				cvLine(ret, *pt[1], *pt[2], line_color, line_thickness, 8, 0);
-				cvLine(ret, *pt[2], *pt[3], line_color, line_thickness, 8, 0);
-				cvLine(ret, *pt[3], *pt[0], line_color, line_thickness, 8, 0);
-			}
-
-			fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
-
-			if ( contour_index < color_pallete_index_max)
-				contour_index++; // stop at white
 		}
 
 		contours = contours->h_next;
@@ -242,20 +250,20 @@ int main(int argc, char *argv[])
 
 	test_dilateQuadAboutCenter();
 
-	if (freenect_sync_set_tilt_degs(MAX_TILT_ANGLE, 0)) {
-		printf("Error: Kinect not connected?\n");
-		return -1;
-	}
+//	if (freenect_sync_set_tilt_degs(MAX_TILT_ANGLE, 0)) {
+//		printf("Error: Kinect not connected?\n");
+//		return -1;
+//	}
 
 	// wait for motor to stop moving before capturing images
-	do {
-		if (freenect_sync_get_tilt_state(&state, 0)) {
-			printf("Error: Kinect not connected?\n");
-			return -1;
-		}
-	} while (TILT_STATUS_MOVING == state->tilt_status);
-
-	sleep(1); // @bug motor doesn't report correct state
+//	do {
+//		if (freenect_sync_get_tilt_state(&state, 0)) {
+//			printf("Error: Kinect not connected?\n");
+//			return -1;
+//		}
+//	} while (TILT_STATUS_MOVING == state->tilt_status);
+//
+//	sleep(1); // @bug motor doesn't report correct state
 
 	// process frames indefinitely at the rate defined by PROCESS_FPS
 	// quit when user presses 'q'
@@ -408,7 +416,7 @@ int main(int argc, char *argv[])
 	}
 
 	// return the camera horizontal tilt
-	freenect_sync_set_tilt_degs(0, 0);
+//	freenect_sync_set_tilt_degs(0, 0);
 
 	return 0;
 }

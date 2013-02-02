@@ -26,8 +26,8 @@
  */
 enum {
 	PROCESS_FPS = 2,
-	CONTOUR_AREA_MIN = 1000, // @TODO automatically determine area for smallest and largest ceiling light
-	CONTOUR_AREA_MAX = 10000,
+	CONTOUR_AREA_MIN = 500, // @TODO automatically determine area for smallest and largest ceiling light
+	CONTOUR_AREA_MAX = 5000,
 	CONTOUR_AREA_DIFFERENCE 	= 500,	// maximum difference between the potential matching contours
 	CONTOUR_POSITION_DIFFERENCE = 100	// maximum
 };
