@@ -104,6 +104,8 @@ Related Work
 Development Environment
 =======================
 
+Note: You must use a PC with a USB 2.0 port. The software is incompatible with USB 3.0. The binary libraries currently do not support the larger packet sizes. A fix may be available but requires building form source and has not been tested.
+
 The development system used is an Ubuntu 12.04 64-bit laptop. The following commands document the setup of said workstation. This assumes the GCC toolchain and C/C++ libraries are installed.
 
  1. `sudo add-apt-repository ppa:floe/libtisch`
@@ -120,6 +122,18 @@ To build the application against libfreenect and OpenCV.
 
  * <pre><code>gcc source.c -lfreenect_sync ``pkg-config --cflags --libs opencv``</code></pre>
 
+Installation on an Ubuntu 12.10 64-bit laptop required the following slightly modified setup.
+
+ 1. `sudo apt-get install build-essential
+ 1. `sudo apt-get install freenect`
+ 1. `sudo apt-get install libopencv-dev libopencv-core-dev libcv-dev libcvaux-dev libcvaux-dev libhighgui-dev opencv-doc libopencv-ml-dev ffmpeg libavformat-dev`
+ 1. `sudo adduser $USER plugdev`
+ 1. `sudo adduser $USER video`
+ 1. `cd /etc/udev/rules.d/`
+ 1. `sudo wget https://raw.github.com/OpenKinect/libfreenect/master/platform/linux/udev/51-kinect.rules`
+ 1. `sudo apt-get install libusb-1.0-0-dev libusb-dev`
+ 
+ 
 Experiments
 ===========
 
