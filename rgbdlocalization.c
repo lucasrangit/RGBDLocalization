@@ -1,14 +1,6 @@
 #include "rgbdlocalization.h"
 #include "helpers.h"
 
-static const char windows_name_rbg[] 	= "RBG";
-static const char windows_name_depth[] 	= "Depth";
-
-static int canny_low = 80;
-static int canny_high = 100;
-
-static bool reinitialize = 0;
-
 static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
 {
 		{ 0, 0, INT32_MAX, 0.0 },
@@ -16,40 +8,6 @@ static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
 };
 
 static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX];
-
-void mouseHandler(int event, int x, int y, int flags, void *param)
-{
-	CvPoint* mouse_click = param;
-	bool handled = true;
-
-	switch (event)
-	{
-	case CV_EVENT_LBUTTONDOWN:
-		/* left button down */
-		fprintf(stdout, "Left button down");
-		mouse_click->x = x;
-		mouse_click->y = y;
-		break;
-	case CV_EVENT_LBUTTONDBLCLK:
-		break;
-	case CV_EVENT_RBUTTONDOWN:
-		/* right button down */
-		fprintf(stdout, "Right button down");
-		break;
-	case CV_EVENT_RBUTTONDBLCLK:
-		fprintf(stdout, "Right button double-click");
-		break;
-	case CV_EVENT_MOUSEMOVE:
-		/* mouse move */
-	default:
-		/* unhandled event */
-		handled = false;
-		break;
-	}
-
-	if (handled)
-		fprintf(stdout, " (%d, %d).\n", x, y);
-}
 
 /*
  * Find contours in an image and return a new image with the contours drawn.
@@ -110,12 +68,14 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 	// iterate through the contour tree and filter out the ceiling lights
 	while (contours)
 	{
-		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.02, 0);
+		// Approximate a polygon around contour using the Douglas-Peucker (DP) approximation.
+		// Pass a zero as the last argument instructs cvApproxPoly to only operate on the first
+		// element of the sequence.
+		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.09, 0);
 		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
 
 		if (4 == result->total)
 		{
-			printf("%f ", area);
 			// has 4 vertices
 			if ((area > CONTOUR_AREA_MIN) &&
 				(area < CONTOUR_AREA_MAX))
@@ -143,7 +103,7 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 						stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
 					}
 
-					// draw contour using the verticies so that we can adjust the color and thickness of each
+					// draw contour using the vertices so that we can adjust the color and thickness of each
 					{
 						//CvScalar line_color = color_pallete[contour_index]; // use with color image
 						CvScalar line_color = cvScalarAll(255); // use with black and white image
@@ -171,71 +131,32 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 	return ret;
 }
 
-/*
- * Handle Key Input
- * Note, after making certain changes (such as shifting) any images that
- * are comprised of multiple samples must be cleared.
- */
-static void adjust_offset(char key, int *x_offset, int *y_offset)
-{
-	switch (key)
-	{
-	case 81: // left
-		*x_offset -= 1;
-		reinitialize = true;
-		break;
-	case 82: // up
-		*y_offset -= 1;
-		reinitialize = true;
-		break;
-	case 83: // right
-		*x_offset += 1;
-		reinitialize = true;
-		break;
-	case 84: // down
-		*y_offset += 1;
-		reinitialize = true;
-		break;
-	case '_':
-	case '-':
-		// scale down
-		// @todo
-		reinitialize = true;
-		break;
-	case '+':
-	case '=':
-		// scale up
-		// @todo
-		reinitialize = true;
-		break;
-	case 'c':
-		// clear
-		reinitialize = true;
-		break;
-	case 'q':
-		// main loop will handle exit
-	case -1:
-		// no key
-	default:
-		// nothing to adjust
-		break;
-	}
-}
-
 int main(int argc, char *argv[])
 {
 	IplImage *image_rgb = NULL;
 	IplImage *image_disparity = NULL;
+	IplImage *image_depth = NULL;
+	IplImage* image_blended = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+	IplImage *image_depth_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_mask = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	//IplImage *image_rgb_masked = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+	IplImage *image_mask_smooth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage* disparity_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage* image_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage* image_edges = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage* rgb_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	CvFont font;
 	char key;
 	int x_offset = 0;
 	int y_offset = 0;
-	IplImage *image_mask_smooth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	cvZero(image_mask_smooth);
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
+	const char windows_name_rbg[] = "RBG";
+	const char windows_name_depth[] = "Depth";
 	cvNamedWindow( windows_name_rbg, CV_WINDOW_AUTOSIZE);
 	CvPoint mouse_click = { .x = -1, .y = -1 };
 	cvSetMouseCallback( windows_name_rbg, mouseHandler, &mouse_click );
+	bool reinitialize = false;
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
 //	tilt_up();
@@ -256,44 +177,17 @@ int main(int argc, char *argv[])
 			printf("Error: Kinect not connected?\n");
 			return -1;
 		}
-		IplImage *image_depth = kinect_disparity_filter(image_disparity);
+		image_depth = kinect_disparity_filter(image_disparity);
 
 		// shift depth image
-		IplImage *image_depth_shifted = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 3);
-		if (x_offset >= 0 && y_offset >= 0)
-		{
-			cvSetImageROI(image_depth_shifted, cvRect(abs(x_offset), abs(y_offset), 640, 480) );
-			cvSetImageROI(image_depth, cvRect(0, 0, 640-abs(x_offset), 480-abs(y_offset)) );
-		}
-		else if (x_offset >= 0 && y_offset < 0)
-		{
-			cvSetImageROI(image_depth_shifted, cvRect( abs(x_offset), 0, 640-abs(x_offset), 480-abs(y_offset) ) );
-			cvSetImageROI(image_depth, cvRect( 0, abs(y_offset), 640-abs(x_offset), 480-abs(y_offset) ) );
-		}
-		else if (x_offset < 0 && y_offset >= 0)
-		{
-			cvSetImageROI(image_depth_shifted, cvRect( 0, abs(y_offset), 640-abs(x_offset), 480-abs(y_offset) ) );
-			cvSetImageROI(image_depth, cvRect( abs(x_offset), 0, 640-abs(x_offset), 480-abs(y_offset) ) );
-		}
-		else if (x_offset < 0 && y_offset < 0)
-		{
-			cvSetImageROI(image_depth_shifted, cvRect(0, 0, 640-abs(x_offset), 480-abs(y_offset)));
-			cvSetImageROI(image_depth, cvRect(abs(x_offset),abs(y_offset),640-abs(x_offset),480-abs(y_offset)));
-		}
-		cvCopy( image_depth, image_depth_shifted, NULL);
-		cvResetImageROI(image_depth_shifted);
-		cvResetImageROI(image_depth);
-		image_depth = image_depth_shifted;
+		shift_image( image_depth, x_offset, y_offset);
 
 		// blend RGB and disparity frames after shift
-		IplImage* image_blended = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 3);
 		cvAddWeighted(image_rgb, 1.0, image_depth, 1.0, 0.0, image_blended);
 		cvShowImage( "Blended", image_blended);
 
 		// create binary image of disparity
-		IplImage *image_depth_gray = cvCreateImage( cvGetSize(image_depth), IPL_DEPTH_8U, 1);
 		cvCvtColor( image_depth, image_depth_gray, CV_RGB2GRAY);
-		IplImage *image_mask = cvCreateImage( cvGetSize(image_depth_gray), IPL_DEPTH_8U, 1);
 		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY);
 
 		if (reinitialize)
@@ -320,30 +214,23 @@ int main(int argc, char *argv[])
 		// TODO: need to adding multiple image_masks in order to only use pixels that are set in all n frames
 		cvShowImage("Mask Smooth", image_mask_smooth);
 
-#if 0
-		IplImage *image_rgb_masked = cvCreateImage(cvGetSize(image_rgb), IPL_DEPTH_8U, 3);
-		cvCopy(image_rgb, image_rgb_masked, image_mask);
-		cvShowImage("RGB Mask", image_rgb_masked);
-#endif
+//		cvCopy(image_rgb, image_rgb_masked, image_mask);
+//		cvShowImage("RGB Mask", image_rgb_masked);
 
 		// find polygons in the disparity data
 		fprintf(stdout, "Disparity Contours (X,Y)\n");
-		IplImage* disparity_contours = cvCreateImage( cvGetSize(image_mask_smooth), IPL_DEPTH_8U, 1);
 		cvCopy( detect_contours(image_mask_smooth, RGB_CONTOURS), disparity_contours, NULL);
 		cvShowImage("Disparity Contours", disparity_contours);
 
 		// find polygons in the RGB data
 		fprintf(stdout, "RGB Contours (X,Y)\n");
 		cvSmooth(image_rgb, image_rgb, CV_GAUSSIAN, 5, 5, 0, 0);
-		IplImage* image_gray = cvCreateImage(cvGetSize(image_rgb), IPL_DEPTH_8U, 1);
 		cvCvtColor(image_rgb, image_gray, CV_RGB2GRAY);
 
-		IplImage* image_edges = cvCreateImage(cvGetSize(image_gray), IPL_DEPTH_8U, 1);
-		cvCanny(image_gray, image_edges, canny_low, canny_high, 3);
+		cvCanny(image_gray, image_edges, CANNY_LOW, CANNY_HIGH, 3);
 		cvSmooth(image_edges, image_edges, CV_GAUSSIAN, 5, 5, 0, 0);
 
 		cvShowImage("Edges", image_edges);
-		IplImage* rgb_contours = cvCreateImage(cvGetSize(image_edges), IPL_DEPTH_8U, 1);
 		cvCopy( detect_contours(image_edges, DEPTH_CONTOURS), rgb_contours, NULL);
 		cvShowImage("RGB Contours", rgb_contours);
 
@@ -387,7 +274,7 @@ int main(int argc, char *argv[])
 		// wait for a key and time delay
 		key = cvWaitKey(1000/PROCESS_FPS);
 		// shift depth image if necessary
-		adjust_offset(key, &x_offset, &y_offset);
+		reinitialize = handle_key_input(key, &x_offset, &y_offset);
 	}
 
 	// return the camera horizontal tilt

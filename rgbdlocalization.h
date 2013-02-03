@@ -56,4 +56,9 @@ typedef enum stats_array_index {
 
 enum { LANDMARK_COUNT_MAX = 10 };
 
+enum {
+	CANNY_LOW = 80,
+	CANNY_HIGH = 100,
+};
+
 #endif /* RGBDLOCALIZATION_H_ */

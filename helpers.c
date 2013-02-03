@@ -130,3 +130,129 @@ void tilt_horizontal()
 {
 	freenect_sync_set_tilt_degs(0, 0);
 }
+
+/*
+ * Handle Key Input
+ * Note, after making certain changes (such as shifting) any images that
+ * are comprised of multiple samples must be cleared.
+ * Returns if a re-initialization is necessary.
+ */
+bool handle_key_input(char key, int *x_offset, int *y_offset)
+{
+	bool reinitialize = false;
+
+	switch (key)
+	{
+	case 81: // left
+		*x_offset -= 1;
+		reinitialize = true;
+		break;
+	case 82: // up
+		*y_offset -= 1;
+		reinitialize = true;
+		break;
+	case 83: // right
+		*x_offset += 1;
+		reinitialize = true;
+		break;
+	case 84: // down
+		*y_offset += 1;
+		reinitialize = true;
+		break;
+	case '_':
+	case '-':
+		// scale down
+		// @todo
+		reinitialize = true;
+		break;
+	case '+':
+	case '=':
+		// scale up
+		// @todo
+		reinitialize = true;
+		break;
+	case 'c':
+		// clear
+		reinitialize = true;
+		break;
+	case 'q':
+		// main loop will handle exit
+	case -1:
+		// no key
+	default:
+		// nothing to adjust
+		break;
+	}
+
+	return reinitialize;
+}
+
+void mouseHandler(int event, int x, int y, int flags, void *param)
+{
+	CvPoint* mouse_click = param;
+	bool handled = true;
+
+	switch (event)
+	{
+	case CV_EVENT_LBUTTONDOWN:
+		/* left button down */
+		fprintf(stdout, "Left button down");
+		mouse_click->x = x;
+		mouse_click->y = y;
+		break;
+	case CV_EVENT_LBUTTONDBLCLK:
+		break;
+	case CV_EVENT_RBUTTONDOWN:
+		/* right button down */
+		fprintf(stdout, "Right button down");
+		break;
+	case CV_EVENT_RBUTTONDBLCLK:
+		fprintf(stdout, "Right button double-click");
+		break;
+	case CV_EVENT_MOUSEMOVE:
+		/* mouse move */
+	default:
+		/* unhandled event */
+		handled = false;
+		break;
+	}
+
+	if (handled)
+		fprintf(stdout, " (%d, %d).\n", x, y);
+}
+
+void shift_image( IplImage *image_src, int x_offset, int y_offset)
+{
+	IplImage *image_shifted = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+
+	if (x_offset >= 0 && y_offset >= 0)
+	{
+		cvSetImageROI(image_shifted, cvRect(abs(x_offset), abs(y_offset), 640, 480) );
+		cvSetImageROI(image_src, cvRect(0, 0, 640-abs(x_offset), 480-abs(y_offset)) );
+	}
+	else if (x_offset >= 0 && y_offset < 0)
+	{
+		cvSetImageROI(image_shifted, cvRect( abs(x_offset), 0, 640-abs(x_offset), 480-abs(y_offset) ) );
+		cvSetImageROI(image_src, cvRect( 0, abs(y_offset), 640-abs(x_offset), 480-abs(y_offset) ) );
+	}
+	else if (x_offset < 0 && y_offset >= 0)
+	{
+		cvSetImageROI(image_shifted, cvRect( 0, abs(y_offset), 640-abs(x_offset), 480-abs(y_offset) ) );
+		cvSetImageROI(image_src, cvRect( abs(x_offset), 0, 640-abs(x_offset), 480-abs(y_offset) ) );
+	}
+	else if (x_offset < 0 && y_offset < 0)
+	{
+		cvSetImageROI(image_shifted, cvRect(0, 0, 640-abs(x_offset), 480-abs(y_offset)));
+		cvSetImageROI(image_src, cvRect(abs(x_offset),abs(y_offset),640-abs(x_offset),480-abs(y_offset)));
+	}
+
+	cvCopy( image_src, image_shifted, NULL);
+
+	cvResetImageROI(image_shifted);
+	cvResetImageROI(image_src);
+
+	//image_src = image_shifted;
+	cvCopy( image_shifted, image_src, NULL);
+
+	cvReleaseImage( &image_shifted);
+}
