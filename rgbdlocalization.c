@@ -1,4 +1,5 @@
 #include "rgbdlocalization.h"
+#include "helpers.h"
 
 static const char windows_name_rbg[] 	= "RBG";
 static const char windows_name_depth[] 	= "Depth";
@@ -97,7 +98,7 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 	{
 		IplImage* image_all_contours = cvCreateImage(cvGetSize(img), 8, 1);
 		cvCopy(img, image_all_contours, NULL);
-		int contour = contours; // first contour
+//		CvSeq* contour = contours; // first contour
 		// TODO need for loop to iterate through sequence
 		cvDrawContours( image_all_contours, contours, cvScalarAll(255), cvScalarAll(0), 0, CV_FILLED, 8, cvPoint(0,0));
 
@@ -223,6 +224,8 @@ static void adjust_offset(char key, int *x_offset, int *y_offset)
 
 int main(int argc, char *argv[])
 {
+	IplImage *image_rgb = NULL;
+	IplImage *image_disparity = NULL;
 	CvFont font;
 	char key;
 	int x_offset = 0;
@@ -231,52 +234,24 @@ int main(int argc, char *argv[])
 	cvZero(image_mask_smooth);
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
 	cvNamedWindow( windows_name_rbg, CV_WINDOW_AUTOSIZE);
-	CvPoint mouse_click;
-	mouse_click.x = -1; // todo: replace with struct init
-	mouse_click.y = -1;
+	CvPoint mouse_click = { .x = -1, .y = -1 };
 	cvSetMouseCallback( windows_name_rbg, mouseHandler, &mouse_click );
-	freenect_raw_tilt_state *state = 0;
 
-	//	get_cv_info();
-
-	// Camera Calibration
-	//	test_cvFindExtrinsicCameraParams2();
-
-	test_cvSolve();
-
-	test_cvFindHomography();
-
-	test_findCentroid();
-
-	test_dilateQuadAboutCenter();
-
-//	if (freenect_sync_set_tilt_degs(MAX_TILT_ANGLE, 0)) {
-//		printf("Error: Kinect not connected?\n");
-//		return -1;
-//	}
-
-	// wait for motor to stop moving before capturing images
-//	do {
-//		if (freenect_sync_get_tilt_state(&state, 0)) {
-//			printf("Error: Kinect not connected?\n");
-//			return -1;
-//		}
-//	} while (TILT_STATUS_MOVING == state->tilt_status);
-//
-//	sleep(1); // @bug motor doesn't report correct state
+	// Point the Kinect at the ceiling for a better view of the lights closest to it
+//	tilt_up();
 
 	// process frames indefinitely at the rate defined by PROCESS_FPS
 	// quit when user presses 'q'
 	while (key != 'q')
 	{
-		IplImage *image_rgb = freenect_sync_get_rgb_cv(0);
+		image_rgb = freenect_sync_get_rgb_cv(0);
 		if (!image_rgb) {
 			printf("Error: Kinect not connected?\n");
 			return -1;
 		}
 		cvCvtColor(image_rgb, image_rgb, CV_RGB2BGR);
 
-		IplImage *image_disparity = freenect_sync_get_depth_cv(0);
+		image_disparity = freenect_sync_get_depth_cv(0);
 		if (!image_disparity) {
 			printf("Error: Kinect not connected?\n");
 			return -1;
@@ -416,7 +391,7 @@ int main(int argc, char *argv[])
 	}
 
 	// return the camera horizontal tilt
-//	freenect_sync_set_tilt_degs(0, 0);
+//	tilt_reset();
 
 	return 0;
 }

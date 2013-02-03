@@ -51,9 +51,10 @@ void test_cvFindExtrinsicCameraParams2()
 	cvReleaseMat(&rotation_vector);
 	cvReleaseMat(&translation_vector);
 }
+
 void test_cvFindHomography()
 {
-	CvPoint2D32f src[4], dst[4]; // source and destination 2D coordinates
+//	CvPoint2D32f src[4], dst[4]; // source and destination 2D coordinates
 
 }
 
@@ -73,14 +74,15 @@ void test_cvSolve()
 	*( (float*)CV_MAT_ELEM_PTR( *matB, 1, 0 ) ) = -2;
 	CvMat* matX = cvCreateMat( 2, 1, CV_32FC1 );
 	cvSetZero(matX);
-	int return_code = 0;
-
-
-	return_code = cvSolve( matA, matB, matX, CV_LU);
+	int return_code = cvSolve( matA, matB, matX, CV_LU);
 
 	float x = CV_MAT_ELEM( *matX, float, 0, 0 );
 	float y = CV_MAT_ELEM( *matX, float, 1, 0 );
 
+	if (!return_code)
+		printf("Solution (x,y) = (%f, %f)\n", x, y);
+	else
+		printf("No solution found");
 }
 /**
  * Quadrilateral Centroid Algorithm

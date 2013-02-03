@@ -98,3 +98,35 @@ void get_cv_info()
 	printf("Libraries: %s\nModules: %s\n", libraries, modules);
 }
 
+/**
+ * Tilt the Kinect to the maximum angle.
+ */
+void tilt_up()
+{
+	freenect_raw_tilt_state *state = 0;
+
+	if (freenect_sync_set_tilt_degs(MAX_TILT_ANGLE, 0)) {
+		printf("Error: Kinect not connected?\n");
+		return;
+	}
+
+	// wait for motor to stop moving before capturing images
+	do {
+		if (freenect_sync_get_tilt_state(&state, 0)) {
+			printf("Error: Kinect not connected?\n");
+			return;
+		}
+	} while (TILT_STATUS_MOVING == state->tilt_status);
+
+	sleep(1); // @bug motor doesn't report correct state
+}
+
+/**
+ * Return the Kinect to the horizontal position.
+ * If the Kinect is tilted, such as by a tripod, this will return the camera to
+ * the horizontal position relative to the ground, not the base of the Kinect.
+ */
+void tilt_horizontal()
+{
+	freenect_sync_set_tilt_degs(0, 0);
+}
