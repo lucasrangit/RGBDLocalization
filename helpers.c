@@ -38,55 +38,34 @@ float raw_depth_to_meters(int raw_disparity)
 /*
  * Color only value for disparity values in the ranges of interest.
  * Specifically, keep only the "no data" range.
+ *
+ * The Kinect's disparity data is 11-bits and stored in a 16-bit/1-channel image.
+ * The filter's output should be a 8-bit/1-channel (monochrome) image.
+ *
  * @todo remove right no data band
  */
-IplImage *kinect_disparity_filter(IplImage *depth)
+void kinect_disparity_filter(IplImage *disparity_16u_1, IplImage *image_8u_1)
 {
-	static IplImage *image = 0;
-	if (!image) image = cvCreateImage( cvSize(depth->width, depth->height), IPL_DEPTH_8U, 3); // depth->depth Unsigned 8-bit integer (8u)
-	unsigned char *depth_color = (unsigned char*)(image->imageData);
+//	static IplImage *image = 0;
+//	if (!image) image = cvCreateImage( cvSize(disparity->width, disparity->height), IPL_DEPTH_8U, 3); // ->depth Unsigned 8-bit integer (8u)
+	unsigned char *depth_data = (unsigned char*)(image_8u_1->imageData);
 	int i;
 	for (i = 0; i < 640*480; i++)
 	{
-		int raw_disparity = ((short *)depth->imageData)[i];
-		if (raw_disparity < 242) // (depth_meters < 0.4)
-		{
-			// unknown
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else if (raw_disparity < 658) // (depth_meters < 0.8)
-		{
-			// too close
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else if (raw_disparity < 1006) // (depth_meters < 4.0)
-		{
-			// normal
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else if (raw_disparity < 1050) // (depth_meters < 8.0)
-		{
-			// too far
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 0;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
-		else  // if (depth_meters > 8.0)
-		{
-			// unknown
-			depth_color[3*i+BGR_RED_INDEX]	= 0;
-			depth_color[3*i+BGR_GREEN_INDEX]	= 255;
-			depth_color[3*i+BGR_BLUE_INDEX]	= 0;
-		}
+		int raw_disparity = ((short *)disparity_16u_1->imageData)[i];
+		/**
+		 * unknown: 	(raw_disparity < 242) 	// (depth_meters < 0.4)
+		 * too close: 	(raw_disparity < 658) 	// (depth_meters < 0.8)
+		 * normal: 		(raw_disparity < 1006) 	// (depth_meters < 4.0)
+		 * too far: 	(raw_disparity < 1050) 	// (depth_meters < 8.0)
+		 * unknown: 	(raw_disparity >= 1050)	// (depth_meters >= 8.0)
+		 */
+		if (raw_disparity >= 1050) // (depth_meters >= 8.0)
+			depth_data[i] = 255; // white
+		else
+			depth_data[i] = 0;  // black
 		// @TODO experiment with setting anything equal to 2047 to 1 only.
 	}
-	return image;
 }
 
 void get_cv_info()
@@ -223,9 +202,13 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 
 void shift_image( IplImage *image_src, int x_offset, int y_offset)
 {
-	IplImage *image_shifted = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+	IplImage *image_shifted = cvCreateImage( cvGetSize(image_src), image_src->depth, image_src->nChannels);
 
-	if (x_offset >= 0 && y_offset >= 0)
+	if (0 == x_offset && 0 == y_offset)
+	{
+		goto release;
+	}
+	else if (x_offset >= 0 && y_offset >= 0)
 	{
 		cvSetImageROI(image_shifted, cvRect(abs(x_offset), abs(y_offset), 640, 480) );
 		cvSetImageROI(image_src, cvRect(0, 0, 640-abs(x_offset), 480-abs(y_offset)) );
@@ -251,8 +234,34 @@ void shift_image( IplImage *image_src, int x_offset, int y_offset)
 	cvResetImageROI(image_shifted);
 	cvResetImageROI(image_src);
 
-	//image_src = image_shifted;
 	cvCopy( image_shifted, image_src, NULL);
 
+release:
 	cvReleaseImage( &image_shifted);
+}
+
+int acquire_color_and_depth( IplImage *image_dst_color, IplImage *image_dst_depth)
+{
+	int status = 0;
+	IplImage *image_rgb = NULL;
+	IplImage *image_disparity = NULL;
+
+	image_rgb = freenect_sync_get_rgb_cv(KINECT_INDEX_0);
+	if (!image_rgb) {
+		printf("Error: Kinect not connected?\n");
+		status = -1;
+	}
+
+	image_disparity = freenect_sync_get_depth_cv(KINECT_INDEX_0);
+	if (!image_disparity) {
+		printf("Error: Kinect not connected?\n");
+		status = -1;
+	}
+
+	cvCvtColor(image_rgb, image_rgb, CV_RGB2BGR);
+	cvCopy( image_rgb, image_dst_color, NULL);
+
+	kinect_disparity_filter(image_disparity, image_dst_depth);
+
+	return status;
 }

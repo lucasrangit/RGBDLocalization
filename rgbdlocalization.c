@@ -133,14 +133,11 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 
 int main(int argc, char *argv[])
 {
-	IplImage *image_rgb = NULL;
-	IplImage *image_disparity = NULL;
-	IplImage *image_depth = NULL;
+	IplImage *image_rgb = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+	IplImage *image_depth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_depth_color = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
 	IplImage* image_blended = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
-	IplImage *image_depth_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	IplImage *image_mask = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	//IplImage *image_rgb_masked = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
-	IplImage *image_mask_smooth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_depth_smooth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage* disparity_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage* image_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage* image_edges = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
@@ -149,13 +146,12 @@ int main(int argc, char *argv[])
 	char key;
 	int x_offset = 0;
 	int y_offset = 0;
-	cvZero(image_mask_smooth);
+	cvZero(image_depth_smooth);
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
-	const char windows_name_rbg[] = "RBG";
-	const char windows_name_depth[] = "Depth";
-	cvNamedWindow( windows_name_rbg, CV_WINDOW_AUTOSIZE);
+	const char windows_name_blended[] = "Blended";
+	cvNamedWindow( windows_name_blended, CV_WINDOW_AUTOSIZE);
 	CvPoint mouse_click = { .x = -1, .y = -1 };
-	cvSetMouseCallback( windows_name_rbg, mouseHandler, &mouse_click );
+	cvSetMouseCallback( windows_name_blended, mouseHandler, &mouse_click );
 	bool reinitialize = false;
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
@@ -165,30 +161,19 @@ int main(int argc, char *argv[])
 	// quit when user presses 'q'
 	while (key != 'q')
 	{
-		image_rgb = freenect_sync_get_rgb_cv(0);
-		if (!image_rgb) {
-			printf("Error: Kinect not connected?\n");
-			return -1;
-		}
-		cvCvtColor(image_rgb, image_rgb, CV_RGB2BGR);
+		if (acquire_color_and_depth( image_rgb, image_depth ))
+			// error getting data, skip processing this frame
+			continue;
 
-		image_disparity = freenect_sync_get_depth_cv(0);
-		if (!image_disparity) {
-			printf("Error: Kinect not connected?\n");
-			return -1;
-		}
-		image_depth = kinect_disparity_filter(image_disparity);
+		cvShowImage("Depth", image_depth);
 
 		// shift depth image
 		shift_image( image_depth, x_offset, y_offset);
 
-		// blend RGB and disparity frames after shift
-		cvAddWeighted(image_rgb, 1.0, image_depth, 1.0, 0.0, image_blended);
-		cvShowImage( "Blended", image_blended);
-
-		// create binary image of disparity
-		cvCvtColor( image_depth, image_depth_gray, CV_RGB2GRAY);
-		cvThreshold(image_depth_gray, image_mask, 128, 255, CV_THRESH_BINARY);
+		// blend RGB and disparity frames
+		cvMerge( NULL, image_depth, NULL, NULL, image_depth_color);
+		cvAddWeighted(image_rgb, 1.0, image_depth_color, 1.0, 0.0, image_blended);
+		cvShowImage( windows_name_blended, image_blended);
 
 		if (reinitialize)
 		{
@@ -203,23 +188,33 @@ int main(int argc, char *argv[])
 				stats_array[i].max     = 0.0;
 			}
 			// initialize the mask
-			cvZero(image_mask_smooth);
+			cvZero(image_depth_smooth);
 		}
 
 		// take multiple samples of the depth because it's noisy
 		// Adding fills in the depth mask
-		cvAdd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // adding multiple samples _grows_ the mask
+		cvAdd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // adding multiple samples _grows_ the mask
 		// Anding removes pixels
-		//cvAnd( image_mask, image_mask_smooth, image_mask_smooth, NULL); // anding multiple samples _shrinks_ the mask
+		//cvAnd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // anding multiple samples _shrinks_ the mask
 		// TODO: need to adding multiple image_masks in order to only use pixels that are set in all n frames
-		cvShowImage("Mask Smooth", image_mask_smooth);
+		cvShowImage("Mask Smooth", image_depth_smooth);
 
-//		cvCopy(image_rgb, image_rgb_masked, image_mask);
-//		cvShowImage("RGB Mask", image_rgb_masked);
+		// write the coordinate and the depth where user has left-clicked
+		if (-1 != mouse_click.x && -1 != mouse_click.y)
+		{
+			char coord_str[] = "640,480,-01.234"; // max coordinate length
+			int coord_str_len = strlen(coord_str);
+			int pixel_disparity = ((short *) image_depth->imageData)[mouse_click.y * 640 + mouse_click.x];
+			sprintf(coord_str, "%03d,%03d,%04d", mouse_click.x, mouse_click.y, pixel_disparity);
+			//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
+			//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
+			coord_str[coord_str_len] = '\0';
+			cvPutText(image_blended, coord_str, cvPoint(mouse_click.x, mouse_click.y), &font, cvScalar(255, 255, 255, 0));
+		}
 
 		// find polygons in the disparity data
 		fprintf(stdout, "Disparity Contours (X,Y)\n");
-		cvCopy( detect_contours(image_mask_smooth, RGB_CONTOURS), disparity_contours, NULL);
+		cvCopy( detect_contours(image_depth_smooth, RGB_CONTOURS), disparity_contours, NULL);
 		cvShowImage("Disparity Contours", disparity_contours);
 
 		// find polygons in the RGB data
@@ -237,7 +232,8 @@ int main(int argc, char *argv[])
 		//		CvSeq* results = cvHoughLines2(image_edges, storage, CV_HOUGH_STANDARD, 2.0, 2.0, image_edges->width / 10, 0, 0);
 
 		// find matching contours
-		if (0) {
+		if (0)
+		{
 			int rgb_index;
 			int depth_index;
 			for ( rgb_index = 0; rgb_index < LANDMARK_COUNT_MAX; ++rgb_index)
@@ -253,23 +249,6 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-
-		// write the coordinate and the depth where user has left-clicked
-		if (-1 != mouse_click.x && -1 != mouse_click.y)
-		{
-			char coord_str[] = "640,480,-01.234"; // max coordinate length
-			int coord_str_len = strlen(coord_str);
-			int pixel_disparity = ((short *) image_disparity->imageData)[mouse_click.y * 640 + mouse_click.x];
-			sprintf(coord_str, "%03d,%03d,%04d", mouse_click.x, mouse_click.y, pixel_disparity);
-			//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
-			//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
-			coord_str[coord_str_len] = '\0';
-			cvPutText(image_rgb, coord_str, cvPoint(mouse_click.x, mouse_click.y), &font, cvScalar(255, 255, 255, 0));
-		}
-		cvShowImage(windows_name_rbg, image_rgb);
-		//cvShowImage(windows_name_depth, GlViewColor(depth));
-		cvShowImage(windows_name_depth, image_depth);
-		//cvShowImage(windows_name_depth, depth);
 
 		// wait for a key and time delay
 		key = cvWaitKey(1000/PROCESS_FPS);

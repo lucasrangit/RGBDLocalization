@@ -26,7 +26,7 @@
  */
 enum {
 	PROCESS_FPS = 2,
-	CONTOUR_AREA_MIN = 500, // @TODO automatically determine area for smallest and largest ceiling light
+	CONTOUR_AREA_MIN = 1000, // @TODO automatically determine area for smallest and largest ceiling light
 	CONTOUR_AREA_MAX = 5000,
 	CONTOUR_AREA_DIFFERENCE 	= 500,	// maximum difference between the potential matching contours
 	CONTOUR_POSITION_DIFFERENCE = 100	// maximum
@@ -59,6 +59,10 @@ enum { LANDMARK_COUNT_MAX = 10 };
 enum {
 	CANNY_LOW = 80,
 	CANNY_HIGH = 100,
+};
+
+enum {
+	KINECT_INDEX_0 = 0,
 };
 
 #endif /* RGBDLOCALIZATION_H_ */
