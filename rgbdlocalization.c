@@ -135,23 +135,24 @@ int main(int argc, char *argv[])
 {
 	IplImage *image_rgb = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
 	IplImage *image_depth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_disparity = cvCreateImage( cvSize(640, 480), IPL_DEPTH_16U, 1);
 	IplImage *image_depth_color = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
-	IplImage* image_blended = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+	IplImage *image_blended = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
 	IplImage *image_depth_smooth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	IplImage* disparity_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	IplImage* image_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	IplImage* image_edges = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	IplImage* rgb_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *disparity_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_edges = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *rgb_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	CvFont font;
 	char key;
 	int x_offset = 0;
 	int y_offset = 0;
 	cvZero(image_depth_smooth);
 	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
-	const char windows_name_blended[] = "Blended";
-	cvNamedWindow( windows_name_blended, CV_WINDOW_AUTOSIZE);
+	const char window_name_live[] = "Kinect Color and Depth";
+	cvNamedWindow( window_name_live, CV_WINDOW_AUTOSIZE);
 	CvPoint mouse_click = { .x = -1, .y = -1 };
-	cvSetMouseCallback( windows_name_blended, mouseHandler, &mouse_click );
+	cvSetMouseCallback( window_name_live, mouseHandler, &mouse_click );
 	bool reinitialize = false;
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
@@ -161,11 +162,9 @@ int main(int argc, char *argv[])
 	// quit when user presses 'q'
 	while (key != 'q')
 	{
-		if (acquire_color_and_depth( image_rgb, image_depth ))
+		if (acquire_color_and_depth( image_rgb, image_depth, image_disparity ))
 			// error getting data, skip processing this frame
 			continue;
-
-		cvShowImage("Depth", image_depth);
 
 		// shift depth image
 		shift_image( image_depth, x_offset, y_offset);
@@ -173,7 +172,6 @@ int main(int argc, char *argv[])
 		// blend RGB and disparity frames
 		cvMerge( NULL, image_depth, NULL, NULL, image_depth_color);
 		cvAddWeighted(image_rgb, 1.0, image_depth_color, 1.0, 0.0, image_blended);
-		cvShowImage( windows_name_blended, image_blended);
 
 		if (reinitialize)
 		{
@@ -204,7 +202,7 @@ int main(int argc, char *argv[])
 		{
 			char coord_str[] = "640,480,-01.234"; // max coordinate length
 			int coord_str_len = strlen(coord_str);
-			int pixel_disparity = ((short *) image_depth->imageData)[mouse_click.y * 640 + mouse_click.x];
+			int pixel_disparity = ((short *) image_disparity->imageData)[(mouse_click.y - y_offset) * 640 + (mouse_click.x - x_offset)];
 			sprintf(coord_str, "%03d,%03d,%04d", mouse_click.x, mouse_click.y, pixel_disparity);
 			//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
 			//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
@@ -249,6 +247,8 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
+
+		cvShowImage( window_name_live, image_blended);
 
 		// wait for a key and time delay
 		key = cvWaitKey(1000/PROCESS_FPS);

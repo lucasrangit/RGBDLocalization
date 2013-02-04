@@ -240,28 +240,30 @@ release:
 	cvReleaseImage( &image_shifted);
 }
 
-int acquire_color_and_depth( IplImage *image_dst_color, IplImage *image_dst_depth)
+int acquire_color_and_depth( IplImage *image_dst_color, IplImage *image_dst_depth, IplImage *image_dst_disparity)
 {
-	int status = 0;
+	int error_code = 0;
 	IplImage *image_rgb = NULL;
 	IplImage *image_disparity = NULL;
 
 	image_rgb = freenect_sync_get_rgb_cv(KINECT_INDEX_0);
 	if (!image_rgb) {
 		printf("Error: Kinect not connected?\n");
-		status = -1;
+		error_code = -1;
 	}
 
 	image_disparity = freenect_sync_get_depth_cv(KINECT_INDEX_0);
 	if (!image_disparity) {
 		printf("Error: Kinect not connected?\n");
-		status = -1;
+		error_code = -1;
 	}
 
 	cvCvtColor(image_rgb, image_rgb, CV_RGB2BGR);
 	cvCopy( image_rgb, image_dst_color, NULL);
 
+	cvCopy( image_disparity, image_dst_disparity, NULL);
+
 	kinect_disparity_filter(image_disparity, image_dst_depth);
 
-	return status;
+	return error_code;
 }
