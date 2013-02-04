@@ -134,26 +134,24 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 int main(int argc, char *argv[])
 {
 	IplImage *image_rgb = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
-	IplImage *image_depth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_nodepth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
+	IplImage *image_nodepth_mask = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *image_disparity = cvCreateImage( cvSize(640, 480), IPL_DEPTH_16U, 1);
-	IplImage *image_depth_color = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+	IplImage *image_nodepth_color = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
 	IplImage *image_blended = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
-	IplImage *image_depth_smooth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *disparity_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *image_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *image_edges = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *rgb_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	CvFont font;
+	bool reinitialize = false;
+	cvZero(image_nodepth_mask);
 	char key;
 	int x_offset = 0;
 	int y_offset = 0;
-	cvZero(image_depth_smooth);
-	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
 	const char window_name_live[] = "Kinect Color and Depth";
 	cvNamedWindow( window_name_live, CV_WINDOW_AUTOSIZE);
 	CvPoint mouse_click = { .x = -1, .y = -1 };
 	cvSetMouseCallback( window_name_live, mouseHandler, &mouse_click );
-	bool reinitialize = false;
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
 //	tilt_up();
@@ -162,16 +160,18 @@ int main(int argc, char *argv[])
 	// quit when user presses 'q'
 	while (key != 'q')
 	{
-		if (acquire_color_and_depth( image_rgb, image_depth, image_disparity ))
+		if (acquire_color_and_disparity( image_rgb, image_disparity ))
 			// error getting data, skip processing this frame
 			continue;
 
+		filter_out_of_range_disparity(image_disparity, image_nodepth);
+
 		// shift depth image
-		shift_image( image_depth, x_offset, y_offset);
+		shift_image( image_nodepth, x_offset, y_offset);
 
 		// blend RGB and disparity frames
-		cvMerge( NULL, image_depth, NULL, NULL, image_depth_color);
-		cvAddWeighted(image_rgb, 1.0, image_depth_color, 1.0, 0.0, image_blended);
+		cvMerge( NULL, image_nodepth, NULL, NULL, image_nodepth_color);
+		cvAddWeighted(image_rgb, 1.0, image_nodepth_color, 1.0, 0.0, image_blended);
 
 		if (reinitialize)
 		{
@@ -186,33 +186,25 @@ int main(int argc, char *argv[])
 				stats_array[i].max     = 0.0;
 			}
 			// initialize the mask
-			cvZero(image_depth_smooth);
+			cvZero(image_nodepth_mask);
 		}
 
-		// take multiple samples of the depth because it's noisy
-		// Adding fills in the depth mask
-		cvAdd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // adding multiple samples _grows_ the mask
-		// Anding removes pixels
-		//cvAnd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // anding multiple samples _shrinks_ the mask
-		// TODO: need to adding multiple image_masks in order to only use pixels that are set in all n frames
-		cvShowImage("Mask Smooth", image_depth_smooth);
+		// take multiple samples of the missing depth data because it's noisy
+		cvAdd( image_nodepth, image_nodepth_mask, image_nodepth_mask, NULL); // adding  _grows_ the mask
+		//cvAnd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // anding _shrinks_ the mask
+		// TODO: use weighted samples (say 3 successive pixels must match)
+		cvShowImage("Depth Mask", image_nodepth_mask);
 
 		// write the coordinate and the depth where user has left-clicked
 		if (-1 != mouse_click.x && -1 != mouse_click.y)
 		{
-			char coord_str[] = "640,480,-01.234"; // max coordinate length
-			int coord_str_len = strlen(coord_str);
 			int pixel_disparity = ((short *) image_disparity->imageData)[(mouse_click.y - y_offset) * 640 + (mouse_click.x - x_offset)];
-			sprintf(coord_str, "%03d,%03d,%04d", mouse_click.x, mouse_click.y, pixel_disparity);
-			//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
-			//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
-			coord_str[coord_str_len] = '\0';
-			cvPutText(image_blended, coord_str, cvPoint(mouse_click.x, mouse_click.y), &font, cvScalar(255, 255, 255, 0));
+			image_paint_value( image_blended, pixel_disparity, mouse_click.x, mouse_click.y);
 		}
 
 		// find polygons in the disparity data
 		fprintf(stdout, "Disparity Contours (X,Y)\n");
-		cvCopy( detect_contours(image_depth_smooth, RGB_CONTOURS), disparity_contours, NULL);
+		cvCopy( detect_contours(image_nodepth_mask, RGB_CONTOURS), disparity_contours, NULL);
 		cvShowImage("Disparity Contours", disparity_contours);
 
 		// find polygons in the RGB data

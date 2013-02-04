@@ -44,10 +44,8 @@ float raw_depth_to_meters(int raw_disparity)
  *
  * @todo remove right no data band
  */
-void kinect_disparity_filter(IplImage *disparity_16u_1, IplImage *image_8u_1)
+void filter_out_of_range_disparity(IplImage *disparity_16u_1, IplImage *image_8u_1)
 {
-//	static IplImage *image = 0;
-//	if (!image) image = cvCreateImage( cvSize(disparity->width, disparity->height), IPL_DEPTH_8U, 3); // ->depth Unsigned 8-bit integer (8u)
 	unsigned char *depth_data = (unsigned char*)(image_8u_1->imageData);
 	int i;
 	for (i = 0; i < 640*480; i++)
@@ -240,7 +238,7 @@ release:
 	cvReleaseImage( &image_shifted);
 }
 
-int acquire_color_and_depth( IplImage *image_dst_color, IplImage *image_dst_depth, IplImage *image_dst_disparity)
+int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_dst_disparity)
 {
 	int error_code = 0;
 	IplImage *image_rgb = NULL;
@@ -263,7 +261,18 @@ int acquire_color_and_depth( IplImage *image_dst_color, IplImage *image_dst_dept
 
 	cvCopy( image_disparity, image_dst_disparity, NULL);
 
-	kinect_disparity_filter(image_disparity, image_dst_depth);
-
 	return error_code;
+}
+
+void image_paint_value( IplImage *image, int value, int x, int y)
+{
+	CvFont font;
+	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
+	char coord_str[] = "640,480,-01.234"; // max coordinate length
+	int coord_str_len = strlen(coord_str);
+	sprintf(coord_str, "%03d,%03d,%04d", x, y, value);
+	//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
+	//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
+	coord_str[coord_str_len] = '\0';
+	cvPutText(image, coord_str, cvPoint(x, y), &font, cvScalar(255, 255, 255, 0));
 }
