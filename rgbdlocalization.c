@@ -9,6 +9,18 @@ static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
 
 static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX];
 
+static void clear_stats()
+{
+	int i;
+	for (i = 0; i < STATS_ARRAY_DIMENSIONS; ++i)
+	{
+		stats_array[i].average = 0;
+		stats_array[i].count   = 0;
+		stats_array[i].min     = INT32_MAX;
+		stats_array[i].max     = 0.0;
+	}
+}
+
 /*
  * Find contours in an image and return a new image with the contours drawn.
  * This function performs a filter on the shapes to identify quadrilaterals
@@ -71,7 +83,7 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 		// Approximate a polygon around contour using the Douglas-Peucker (DP) approximation.
 		// Pass a zero as the last argument instructs cvApproxPoly to only operate on the first
 		// element of the sequence.
-		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.09, 0);
+		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.06, 0);
 		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
 
 		if (4 == result->total)
@@ -134,17 +146,16 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 int main(int argc, char *argv[])
 {
 	IplImage *image_rgb = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
+	IplImage *image_disparity = cvCreateImage( cvSize(640, 480), IPL_DEPTH_16U, 1);
 	IplImage *image_nodepth = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *image_nodepth_mask = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	IplImage *image_disparity = cvCreateImage( cvSize(640, 480), IPL_DEPTH_16U, 1);
 	IplImage *image_nodepth_color = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
 	IplImage *image_blended = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 3);
 	IplImage *disparity_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *image_gray = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *image_edges = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
 	IplImage *rgb_contours = cvCreateImage( cvSize(640, 480), IPL_DEPTH_8U, 1);
-	bool reinitialize = false;
-	cvZero(image_nodepth_mask);
+	bool reinitialize = true;
 	char key;
 	int x_offset = 0;
 	int y_offset = 0;
@@ -160,40 +171,30 @@ int main(int argc, char *argv[])
 	// quit when user presses 'q'
 	while (key != 'q')
 	{
+		/*
+		 * Capture data from Kinect
+		 */
 		if (acquire_color_and_disparity( image_rgb, image_disparity ))
+		{
 			// error getting data, skip processing this frame
 			continue;
+		}
 
+		/*
+		 * Create RGB and No Depth image for analysis
+		 */
 		filter_out_of_range_disparity(image_disparity, image_nodepth);
 
-		// shift depth image
 		shift_image( image_nodepth, x_offset, y_offset);
 
-		// blend RGB and disparity frames
+		// blend live RGB and no depth images for monitoring purposes
 		cvMerge( NULL, image_nodepth, NULL, NULL, image_nodepth_color);
 		cvAddWeighted(image_rgb, 1.0, image_nodepth_color, 1.0, 0.0, image_blended);
-
-		if (reinitialize)
-		{
-			int i;
-			reinitialize = false;
-			// clear statistics
-			for (i = 0; i < STATS_ARRAY_DIMENSIONS; ++i)
-			{
-				stats_array[i].average = 0;
-				stats_array[i].count   = 0;
-				stats_array[i].min     = INT32_MAX;
-				stats_array[i].max     = 0.0;
-			}
-			// initialize the mask
-			cvZero(image_nodepth_mask);
-		}
 
 		// take multiple samples of the missing depth data because it's noisy
 		cvAdd( image_nodepth, image_nodepth_mask, image_nodepth_mask, NULL); // adding  _grows_ the mask
 		//cvAnd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // anding _shrinks_ the mask
 		// TODO: use weighted samples (say 3 successive pixels must match)
-		cvShowImage("Depth Mask", image_nodepth_mask);
 
 		// write the coordinate and the depth where user has left-clicked
 		if (-1 != mouse_click.x && -1 != mouse_click.y)
@@ -202,24 +203,26 @@ int main(int argc, char *argv[])
 			image_paint_value( image_blended, pixel_disparity, mouse_click.x, mouse_click.y);
 		}
 
-		// find polygons in the disparity data
+		/*
+		 * Find polygons in the disparity data
+		 */
 		fprintf(stdout, "Disparity Contours (X,Y)\n");
 		cvCopy( detect_contours(image_nodepth_mask, RGB_CONTOURS), disparity_contours, NULL);
-		cvShowImage("Disparity Contours", disparity_contours);
 
-		// find polygons in the RGB data
-		fprintf(stdout, "RGB Contours (X,Y)\n");
+		/*
+		 * find polygons in the RGB data
+		 */
+		// apply Gaussian blur to reduce noise
 		cvSmooth(image_rgb, image_rgb, CV_GAUSSIAN, 5, 5, 0, 0);
+		// convert to gray scale (required by Canny edge detector)
 		cvCvtColor(image_rgb, image_gray, CV_RGB2GRAY);
-
+		// detect edges
 		cvCanny(image_gray, image_edges, CANNY_LOW, CANNY_HIGH, 3);
+		// blurring edges improves contour detection
 		cvSmooth(image_edges, image_edges, CV_GAUSSIAN, 5, 5, 0, 0);
-
-		cvShowImage("Edges", image_edges);
+		// detect contours from edges
+		fprintf(stdout, "RGB Contours (X,Y)\n");
 		cvCopy( detect_contours(image_edges, DEPTH_CONTOURS), rgb_contours, NULL);
-		cvShowImage("RGB Contours", rgb_contours);
-
-		//		CvSeq* results = cvHoughLines2(image_edges, storage, CV_HOUGH_STANDARD, 2.0, 2.0, image_edges->width / 10, 0, 0);
 
 		// find matching contours
 		if (0)
@@ -240,13 +243,45 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		/*
+		 * Display input and intermediate data for monitoring
+		 */
 		cvShowImage( window_name_live, image_blended);
+		cvShowImage( "Depth Mask", image_nodepth_mask);
+		cvShowImage( "Disparity Contours", disparity_contours);
+		//cvShowImage( "Edges", image_edges);
+		cvShowImage("RGB Contours", rgb_contours);
 
-		// wait for a key and time delay
+
+		/*
+		 * Wait for user input or timeout
+		 */
 		key = cvWaitKey(1000/PROCESS_FPS);
-		// shift depth image if necessary
 		reinitialize = handle_key_input(key, &x_offset, &y_offset);
+
+		if (reinitialize)
+		{
+			// clear statistics
+			clear_stats();
+			// initialize the mask
+			cvZero(image_nodepth_mask);
+			// clear flag
+			reinitialize = false;
+		}
 	}
+
+	cvDestroyAllWindows();
+
+	cvReleaseImage( &image_rgb);
+	cvReleaseImage( &image_disparity);
+	cvReleaseImage( &image_nodepth);
+	cvReleaseImage( &image_nodepth_mask);
+	cvReleaseImage( &image_nodepth_color);
+	cvReleaseImage( &image_blended);
+	cvReleaseImage( &disparity_contours);
+	cvReleaseImage( &image_gray);
+	cvReleaseImage( &image_edges);
+	cvReleaseImage( &rgb_contours);
 
 	// return the camera horizontal tilt
 //	tilt_reset();

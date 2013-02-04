@@ -248,12 +248,14 @@ int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_dst_
 	if (!image_rgb) {
 		printf("Error: Kinect not connected?\n");
 		error_code = -1;
+		goto abort;
 	}
 
 	image_disparity = freenect_sync_get_depth_cv(KINECT_INDEX_0);
 	if (!image_disparity) {
 		printf("Error: Kinect not connected?\n");
 		error_code = -1;
+		goto abort;
 	}
 
 	cvCvtColor(image_rgb, image_rgb, CV_RGB2BGR);
@@ -261,6 +263,7 @@ int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_dst_
 
 	cvCopy( image_disparity, image_dst_disparity, NULL);
 
+	abort:
 	return error_code;
 }
 
