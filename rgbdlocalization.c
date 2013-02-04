@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 		}
 
 		/*
-		 * Create RGB and No Depth image for analysis
+		 * Create RGB and No Depth images for analysis
 		 */
 		filter_out_of_range_disparity(image_disparity, image_nodepth);
 
@@ -194,9 +194,9 @@ int main(int argc, char *argv[])
 		// take multiple samples of the missing depth data because it's noisy
 		cvAdd( image_nodepth, image_nodepth_mask, image_nodepth_mask, NULL); // adding  _grows_ the mask
 		//cvAnd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // anding _shrinks_ the mask
-		// TODO: use weighted samples (say 3 successive pixels must match)
+		// TODO: use weighted samples (e.g. 3 successive pixels must match)
 
-		// write the coordinate and the depth where user has left-clicked
+		// write the coordinate and the disparity where user has left-clicked
 		if (-1 != mouse_click.x && -1 != mouse_click.y)
 		{
 			int pixel_disparity = ((short *) image_disparity->imageData)[(mouse_click.y - y_offset) * 640 + (mouse_click.x - x_offset)];
@@ -252,7 +252,6 @@ int main(int argc, char *argv[])
 		//cvShowImage( "Edges", image_edges);
 		cvShowImage("RGB Contours", rgb_contours);
 
-
 		/*
 		 * Wait for user input or timeout
 		 */
@@ -270,6 +269,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/*
+	 * Cleanup
+	 */
+	// return the camera horizontal tilt
+//	tilt_reset();
+
 	cvDestroyAllWindows();
 
 	cvReleaseImage( &image_rgb);
@@ -283,8 +288,9 @@ int main(int argc, char *argv[])
 	cvReleaseImage( &image_edges);
 	cvReleaseImage( &rgb_contours);
 
-	// return the camera horizontal tilt
-//	tilt_reset();
 
+	/*
+	 * Exit
+	 */
 	return 0;
 }
