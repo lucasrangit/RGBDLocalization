@@ -9,15 +9,13 @@ static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
 
 static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX];
 
+
 static void clear_stats()
 {
 	int i;
 	for (i = 0; i < STATS_ARRAY_DIMENSIONS; ++i)
 	{
-		stats_array[i].average = 0;
-		stats_array[i].count   = 0;
-		stats_array[i].min     = INT32_MAX;
-		stats_array[i].max     = 0.0;
+		clear_stat(i);
 	}
 }
 
@@ -30,80 +28,58 @@ static void clear_stats()
 static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_index)
 {
 	CvSeq* contours; // linked list of contours
-	CvSeq* result; // pointer to single contour
+	CvSeq* polygon; // pointer to single polygon contour
 	CvMemStorage *storage = cvCreateMemStorage(0); // storage for contour linked list
 	static IplImage* ret = NULL;
-	if (!ret) ret = cvCreateImage(cvGetSize(img), 8, 1);
-	cvZero(ret);
+	if (!ret)
+		ret = cvCreateImage(cvGetSize(img), 8, 1);
+	else
+		cvZero(ret);
 	IplImage* temp = cvCreateImage(cvGetSize(img), 8, 1);
 	int i;
 	double area;
 	int contour_index = 0;
-	CvScalar color_pallete[] =
-	{
-			CV_RGB( 255, 0, 0 ), 	// red
-			CV_RGB( 0, 255, 0 ), 	// green
-			CV_RGB( 0, 0, 255 ), 	// blue
-			CV_RGB( 255, 255, 0 ), 	//
-			CV_RGB( 255, 0, 255 ), 	//
-			CV_RGB( 0, 255, 255 ), 	//
-			CV_RGB( 255, 255, 255 ) // white
-	};
-	int color_pallete_index_max = sizeof(color_pallete)/sizeof(CvScalar) - 1;
+	CvPoint potential_ceiling_lights[LANDMARK_COUNT_MAX][4];
 
 	// reset stats for each frame
-	{
-		stats_array[stats_index].average = 0;
-		stats_array[stats_index].count   = 0;
-		stats_array[stats_index].min     = INT32_MAX;
-		stats_array[stats_index].max     = 0.0;
-	}
+	clear_stat(stats_index);
 
+	/*
+	 * Search input image for contours
+	 */
 	cvCopy(img, temp, NULL);
 	//	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 
-	// draw contours using the cvDrawContours()
-	if (0) // disabled, work in progress
-	{
-		IplImage* image_all_contours = cvCreateImage(cvGetSize(img), 8, 1);
-		cvCopy(img, image_all_contours, NULL);
-//		CvSeq* contour = contours; // first contour
-		// TODO need for loop to iterate through sequence
-		cvDrawContours( image_all_contours, contours, cvScalarAll(255), cvScalarAll(0), 0, CV_FILLED, 8, cvPoint(0,0));
-
-		//cvNamedWindow( "All contours", CV_WINDOW_AUTOSIZE);
-		cvShowImage( "All contours", image_all_contours);
-		cvReleaseImage(&image_all_contours);
-	}
-
-	// iterate through the contour tree and filter out the ceiling lights
+	/*
+	 * Find contours that have the shape of ceiling lights
+	 */
 	while (contours)
 	{
 		// Approximate a polygon around contour using the Douglas-Peucker (DP) approximation.
 		// Pass a zero as the last argument instructs cvApproxPoly to only operate on the first
 		// element of the sequence.
-		result = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.06, 0);
-		area = fabs(cvContourArea(result, CV_WHOLE_SEQ, 0));
+		polygon = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.06, 0);
 
-		if (4 == result->total)
+		if (4 == polygon->total)
 		{
 			// has 4 vertices
+			area = fabs(cvContourArea(polygon, CV_WHOLE_SEQ, 0));
 			if ((area > CONTOUR_AREA_MIN) &&
 				(area < CONTOUR_AREA_MAX))
 			{
 				// has "reasonable" area
-				if (cvCheckContourConvexity(result))
+				if (cvCheckContourConvexity(polygon))
 				{
 					// is convex
 					CvPoint *pt[4];
 					for ( i = 0; i < 4; i++)
-						pt[i] = (CvPoint*)cvGetSeqElem(result, i);
-
-					// save the contour as a potential landmark
 					{
-						CvContour *contour = (CvContour*)result;
-						potential_landmarks[stats_index][contour_index] = *contour;
+						pt[i] = (CvPoint*)cvGetSeqElem(polygon, i);
+
+						// save the contour as a potential landmark
+						if (contour_index < LANDMARK_COUNT_MAX)
+							potential_ceiling_lights[contour_index][i] = *pt[i];
 					}
 
 					// keep running statistics for each frame
@@ -117,7 +93,6 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
 					{
-						//CvScalar line_color = color_pallete[contour_index]; // use with color image
 						CvScalar line_color = cvScalarAll(255); // use with black and white image
 						int line_thickness = contour_index+1; // vary the thickness so that contours can be distinguished in black and white
 						cvLine(ret, *pt[0], *pt[1], line_color, line_thickness, 8, 0);
@@ -127,14 +102,12 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 					}
 
 					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
-
-					if ( contour_index < color_pallete_index_max)
-						contour_index++; // stop at white
 				}
 			}
 		}
 
 		contours = contours->h_next;
+		contour_index++;
 	}
 
 	cvReleaseImage(&temp);

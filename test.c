@@ -166,4 +166,18 @@ void test_dilateQuadAboutCenter()
 	dilateQuadAboutCenter( ptB, center, scale);
 }
 
+/**
+ * Paint all contours with a single OpenCV call on an image.
+ */
+void test_cvDrawContours( IplImage *img, CvSeq* contours)
+{
+	IplImage* image_all_contours = cvCreateImage(cvGetSize(img), 8, 1);
+	cvCopy(img, image_all_contours, NULL);
+//		CvSeq* contour = contours; // first contour
+	// TODO need for loop to iterate through sequence
+	cvDrawContours( image_all_contours, contours, cvScalarAll(255), cvScalarAll(0), 0, CV_FILLED, 8, cvPoint(0,0));
+
+	cvShowImage( "All contours", image_all_contours);
+	cvReleaseImage(&image_all_contours);
+}
 
