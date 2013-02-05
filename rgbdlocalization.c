@@ -1,23 +1,7 @@
 #include "rgbdlocalization.h"
 #include "helpers.h"
 
-static struct stats stats_array[STATS_ARRAY_DIMENSIONS] =
-{
-		{ 0, 0, INT32_MAX, 0.0 },
-		{ 0, 0, INT32_MAX, 0.0 }
-};
-
-static CvContour potential_landmarks[STATS_ARRAY_DIMENSIONS][LANDMARK_COUNT_MAX];
-
-
-static void clear_stats()
-{
-	int i;
-	for (i = 0; i < STATS_ARRAY_DIMENSIONS; ++i)
-	{
-		clear_stat(i);
-	}
-}
+static CvContour potential_landmarks[LANDMARK_COUNT_MAX];
 
 /*
  * Find contours in an image and return a new image with the contours drawn.
@@ -25,7 +9,7 @@ static void clear_stats()
  * in the shape of a ceiling light: is convex, has 4 vertices, and a certain size.
  * TODO: consider adding a slider to the window for adjusting the thresholds
  */
-static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_index)
+static IplImage* detect_contours(IplImage* img)
 {
 	CvSeq* contours; // linked list of contours
 	CvSeq* polygon; // pointer to single polygon contour
@@ -40,9 +24,6 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 	double area;
 	int contour_index = 0;
 	CvPoint potential_ceiling_lights[LANDMARK_COUNT_MAX][4];
-
-	// reset stats for each frame
-	clear_stat(stats_index);
 
 	/*
 	 * Search input image for contours
@@ -80,15 +61,6 @@ static IplImage* detect_contours(IplImage* img, enum stats_array_index stats_ind
 						// save the contour as a potential landmark
 						if (contour_index < LANDMARK_COUNT_MAX)
 							potential_ceiling_lights[contour_index][i] = *pt[i];
-					}
-
-					// keep running statistics for each frame
-					if (area)
-					{
-						stats_array[stats_index].count  += 1;
-						stats_array[stats_index].average = (stats_array[stats_index].average + area)/stats_array[stats_index].count;
-						stats_array[stats_index].min     = MIN(stats_array[stats_index].min, area);
-						stats_array[stats_index].max     = MAX(stats_array[stats_index].max, area);
 					}
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
@@ -197,24 +169,9 @@ int main(int argc, char *argv[])
 		fprintf(stdout, "RGB Contours (X,Y)\n");
 		cvCopy( detect_contours(image_edges, DEPTH_CONTOURS), rgb_contours, NULL);
 
-		// find matching contours
-		if (0)
-		{
-			int rgb_index;
-			int depth_index;
-			for ( rgb_index = 0; rgb_index < LANDMARK_COUNT_MAX; ++rgb_index)
-			{
-				for ( depth_index = 0; depth_index < LANDMARK_COUNT_MAX; ++depth_index)
-				{
-					double rgb_area = fabs(cvContourArea( &potential_landmarks[RGB_CONTOURS][rgb_index], CV_WHOLE_SEQ, 0));
-					double depth_area = fabs(cvContourArea( &potential_landmarks[DEPTH_CONTOURS][depth_index], CV_WHOLE_SEQ, 0));
-					double area_difference = fabs(rgb_area - depth_area);
-					if ( CONTOUR_AREA_DIFFERENCE > area_difference)
-						// we have a match
-						break;
-				}
-			}
-		}
+		/*
+		 * find matching contours
+		 */
 
 		/*
 		 * Display input and intermediate data for monitoring
@@ -233,8 +190,6 @@ int main(int argc, char *argv[])
 
 		if (reinitialize)
 		{
-			// clear statistics
-			clear_stats();
 			// initialize the mask
 			cvZero(image_nodepth_mask);
 			// clear flag
