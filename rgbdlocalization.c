@@ -105,6 +105,7 @@ int main(int argc, char *argv[])
 	cvNamedWindow( window_name_live, CV_WINDOW_AUTOSIZE);
 	CvPoint mouse_click = { .x = -1, .y = -1 };
 	cvSetMouseCallback( window_name_live, mouseHandler, &mouse_click );
+	int i;
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
 //	tilt_up();
@@ -169,11 +170,23 @@ int main(int argc, char *argv[])
 		cvCopy( detect_contours(image_edges, lights_rgb), rgb_contours, NULL);
 
 		/*
-		 * Find matching contours
+		 * Find valid landmark by matching contours
 		 */
-		CvPoint2D32f testcentroid = { .x = 0.0, .y = 0.0 };
-		testcentroid = findCentroid( lights_rgb[0]);
-		printf(" centroid[0] = (%f,%f)\n", testcentroid.x, testcentroid.y);
+		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
+		{
+			CvPoint2D32f centroid_rgb = findCentroid( lights_rgb[i]);
+			CvPoint2D32f centroid_depth = findCentroid( lights_depth[i]);
+			float distance = distance2f(centroid_rgb,centroid_depth);
+			printf("Centroid distance = %f", distance);
+		}
+
+		/*
+		 * Approximate depth to each landmark
+		 */
+		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
+		{
+			float depth = approximate_depth( image_disparity, lights_depth[i]);
+		}
 
 
 		/*

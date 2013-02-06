@@ -15,5 +15,7 @@ int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_disp
 void filter_out_of_range_disparity(IplImage *disparity_16u_1, IplImage *image_8u_1);
 void image_paint_value( IplImage *image, int value, int x, int y);
 CvPoint2D32f findCentroid( quad_coord input_quad);
+float distance2f( CvPoint2D32f a, CvPoint2D32f b);
+float approximate_depth( IplImage *disparity, quad_coord quad);
 
 #endif /* HELPERS_H_ */

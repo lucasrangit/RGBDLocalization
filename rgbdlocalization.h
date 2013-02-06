@@ -54,7 +54,7 @@ typedef enum stats_array_index {
 	STATS_ARRAY_DIMENSIONS
 } stats_array_index;
 
-enum { LANDMARK_COUNT_MAX = 10 };
+enum { LANDMARK_COUNT_MAX = 4 };
 
 enum {
 	CANNY_LOW = 80,

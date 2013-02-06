@@ -329,3 +329,59 @@ CvPoint2D32f findCentroid( quad_coord input_quad)
 
 	return centroid;
 }
+
+float distance2f( CvPoint2D32f a, CvPoint2D32f b)
+{
+	float distance = 0.0;
+
+	distance = sqrtf( pow(b.x - a.x, 2) + pow(b.y - a.y, 2) );
+
+	return distance;
+}
+
+
+static float scale_cartician( float point, float scale, float center)
+{
+	return (point*scale + center*(1-scale));
+}
+
+/**
+ * Dilate a quadrilateral about a point.
+ * TODO: evaluate another algorithm that works for convex or concave:
+ *       http://stackoverflow.com/questions/7995547/enlarge-and-restrict-a-quadrilateral-polygon-in-opencv-2-3-with-c
+ * @param[in] verticies going ccw
+ */
+void dilateQuadAboutCenter( CvPoint2D32f vertices[4], CvPoint2D32f origin, float scale)
+{
+	vertices[0].x = scale_cartician(vertices[0].x, scale, origin.x); vertices[0].y = scale_cartician(vertices[0].y, scale, origin.y);
+	vertices[1].x = scale_cartician(vertices[1].x, scale, origin.x); vertices[1].y = scale_cartician(vertices[1].y, scale, origin.y);
+	vertices[2].x = scale_cartician(vertices[2].x, scale, origin.x); vertices[2].y = scale_cartician(vertices[2].y, scale, origin.y);
+	vertices[3].x = scale_cartician(vertices[3].x, scale, origin.x); vertices[3].y = scale_cartician(vertices[3].y, scale, origin.y);
+}
+
+float approximate_depth( IplImage *disparity, quad_coord quad)
+{
+	float depth = 0.0;
+	float depths[4] = { 0 };
+	int i;
+
+	// grow each vertex until a known depth is found
+	do
+	{
+		for ( i = 0; i < 4; ++i)
+		{
+			int pixel_disparity = ((short *) disparity->imageData)[quad.verteces[i].y * 640 + quad.verteces[i].x];
+			if ( pixel_disparity > 0 && pixel_disparity < 2047)
+				depths[i] = pixel_disparity;
+		}
+
+		// if not all vertices had a valid depth, dilate the quad before checking again
+
+
+
+	} while ( 0 == depths[0] || 0 == depths[1] || 0 == depths[2] || 0 == depths[3] );
+
+	// return average of known depth
+
+	return depth;
+}

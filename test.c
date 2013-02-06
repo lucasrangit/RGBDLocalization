@@ -122,25 +122,6 @@ void test_findCentroid()
 	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroidX, centroidY, area);
 }
 
-static float scale_cartician( float point, float scale, float center)
-{
-	return (point*scale + center*(1-scale));
-}
-
-/**
- * Dilate a quadrilateral about a point.
- * TODO: evaluate another algorithm that works for convex or concave:
- *       http://stackoverflow.com/questions/7995547/enlarge-and-restrict-a-quadrilateral-polygon-in-opencv-2-3-with-c
- * @param[in] verticies going ccw
- */
-void dilateQuadAboutCenter( CvPoint2D32f vertices[4], CvPoint2D32f origin, float scale)
-{
-	vertices[0].x = scale_cartician(vertices[0].x, scale, origin.x); vertices[0].y = scale_cartician(vertices[0].y, scale, origin.y);
-	vertices[1].x = scale_cartician(vertices[1].x, scale, origin.x); vertices[1].y = scale_cartician(vertices[1].y, scale, origin.y);
-	vertices[2].x = scale_cartician(vertices[2].x, scale, origin.x); vertices[2].y = scale_cartician(vertices[2].y, scale, origin.y);
-	vertices[3].x = scale_cartician(vertices[3].x, scale, origin.x); vertices[3].y = scale_cartician(vertices[3].y, scale, origin.y);
-}
-
 void test_dilateQuadAboutCenter()
 {
 	CvPoint2D32f ptA[4];
