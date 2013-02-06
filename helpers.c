@@ -284,3 +284,48 @@ void image_paint_value( IplImage *image, int value, int x, int y)
 	coord_str[coord_str_len] = '\0';
 	cvPutText(image, coord_str, cvPoint(x, y), &font, cvScalar(255, 255, 255, 0));
 }
+
+/**
+ * Quadrilateral Centroid Algorithm
+ *
+ * @author Filipi Vianna
+ * @ref http://filipivianna.blogspot.com/2009/11/quadrilateral-centroid-algorithm.html
+ */
+CvPoint2D32f findCentroid( quad_coord input_quad)
+{
+	float verticesX[5];
+	float verticesY[5];
+	CvPoint2D32f centroid = { .x = 0, .y = 0 };
+
+	verticesX[0] = input_quad.verteces[0].x;
+	verticesY[0] = input_quad.verteces[0].y;
+	verticesX[1] = input_quad.verteces[1].x;
+	verticesY[1] = input_quad.verteces[1].y;
+	verticesX[2] = input_quad.verteces[2].x;
+	verticesY[2] = input_quad.verteces[2].y;
+	verticesX[3] = input_quad.verteces[3].x;
+	verticesY[3] = input_quad.verteces[3].y;
+	// Repeat the first vertex
+	verticesX[4] = verticesX[0];
+	verticesY[4] = verticesY[0];
+
+	int i, k;
+	float area = 0.0f;
+	float tmp = 0.0f;
+
+	for (i = 0; i <= 4; i++){
+		k = (i + 1) % (4 + 1);
+		tmp = verticesX[i] * verticesY[k] -
+				verticesX[k] * verticesY[i];
+		area += tmp;
+		centroid.x += (verticesX[i] + verticesX[k]) * tmp;
+		centroid.y += (verticesY[i] + verticesY[k]) * tmp;
+	}
+	area *= 0.5f;
+	centroid.x *= 1.0f / (6.0f * area);
+	centroid.y *= 1.0f / (6.0f * area);
+
+	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroid.x, centroid.y, area);
+
+	return centroid;
+}

@@ -1,10 +1,6 @@
 #include "rgbdlocalization.h"
 #include "helpers.h"
 
-typedef struct quad_coord {
-	CvPoint vertex[4];
-} quad_coord;
-
 /*
  * Find contours in an image and return a new image with the contours drawn.
  * This function performs a filter on the shapes to identify quadrilaterals
@@ -61,7 +57,7 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 
 						// save the contour as a potential landmark
 						if (contour_index < 4) // don't overrun array
-							found_quads[contour_index].vertex[i] = *pt[i];
+							found_quads[contour_index].verteces[i] = *pt[i];
 					}
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
@@ -173,8 +169,12 @@ int main(int argc, char *argv[])
 		cvCopy( detect_contours(image_edges, lights_rgb), rgb_contours, NULL);
 
 		/*
-		 * find matching contours
+		 * Find matching contours
 		 */
+		CvPoint2D32f testcentroid = { .x = 0.0, .y = 0.0 };
+		testcentroid = findCentroid( lights_rgb[0]);
+		printf(" centroid[0] = (%f,%f)\n", testcentroid.x, testcentroid.y);
+
 
 		/*
 		 * Display input and intermediate data for monitoring

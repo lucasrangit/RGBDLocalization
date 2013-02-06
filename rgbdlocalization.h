@@ -65,4 +65,9 @@ enum {
 	KINECT_INDEX_0 = 0,
 };
 
+typedef struct quad_coord {
+	CvPoint verteces[4];
+} quad_coord;
+
+
 #endif /* RGBDLOCALIZATION_H_ */
