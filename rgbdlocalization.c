@@ -1,8 +1,6 @@
 #include "rgbdlocalization.h"
 #include "helpers.h"
 
-static CvContour potential_landmarks[LANDMARK_COUNT_MAX];
-
 /*
  * Find contours in an image and return a new image with the contours drawn.
  * This function performs a filter on the shapes to identify quadrilaterals
@@ -23,13 +21,12 @@ static IplImage* detect_contours(IplImage* img)
 	int i;
 	double area;
 	int contour_index = 0;
-	CvPoint potential_ceiling_lights[LANDMARK_COUNT_MAX][4];
 
 	/*
 	 * Search input image for contours
 	 */
 	cvCopy(img, temp, NULL);
-	//	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
+	// Find only the outer contours
 	cvFindContours(temp, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0));
 
 	/*
@@ -59,8 +56,8 @@ static IplImage* detect_contours(IplImage* img)
 						pt[i] = (CvPoint*)cvGetSeqElem(polygon, i);
 
 						// save the contour as a potential landmark
-						if (contour_index < LANDMARK_COUNT_MAX)
-							potential_ceiling_lights[contour_index][i] = *pt[i];
+//						if (contour_index < LANDMARK_COUNT_MAX)
+//							potential_ceiling_lights[contour_index][i] = *pt[i];
 					}
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
@@ -74,12 +71,12 @@ static IplImage* detect_contours(IplImage* img)
 					}
 
 					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
+					contour_index++;
 				}
 			}
 		}
 
 		contours = contours->h_next;
-		contour_index++;
 	}
 
 	cvReleaseImage(&temp);
@@ -152,7 +149,7 @@ int main(int argc, char *argv[])
 		 * Find polygons in the disparity data
 		 */
 		fprintf(stdout, "Disparity Contours (X,Y)\n");
-		cvCopy( detect_contours(image_nodepth_mask, RGB_CONTOURS), disparity_contours, NULL);
+		cvCopy( detect_contours(image_nodepth_mask), disparity_contours, NULL);
 
 		/*
 		 * find polygons in the RGB data
@@ -167,7 +164,7 @@ int main(int argc, char *argv[])
 		cvSmooth(image_edges, image_edges, CV_GAUSSIAN, 5, 5, 0, 0);
 		// detect contours from edges
 		fprintf(stdout, "RGB Contours (X,Y)\n");
-		cvCopy( detect_contours(image_edges, DEPTH_CONTOURS), rgb_contours, NULL);
+		cvCopy( detect_contours(image_edges), rgb_contours, NULL);
 
 		/*
 		 * find matching contours
