@@ -1,13 +1,17 @@
 #include "rgbdlocalization.h"
 #include "helpers.h"
 
+typedef struct quad_coord {
+	CvPoint vertex[4];
+} quad_coord;
+
 /*
  * Find contours in an image and return a new image with the contours drawn.
  * This function performs a filter on the shapes to identify quadrilaterals
  * in the shape of a ceiling light: is convex, has 4 vertices, and a certain size.
  * TODO: consider adding a slider to the window for adjusting the thresholds
  */
-static IplImage* detect_contours(IplImage* img)
+static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 {
 	CvSeq* contours; // linked list of contours
 	CvSeq* polygon; // pointer to single polygon contour
@@ -56,8 +60,8 @@ static IplImage* detect_contours(IplImage* img)
 						pt[i] = (CvPoint*)cvGetSeqElem(polygon, i);
 
 						// save the contour as a potential landmark
-//						if (contour_index < LANDMARK_COUNT_MAX)
-//							potential_ceiling_lights[contour_index][i] = *pt[i];
+						if (contour_index < 4) // don't overrun array
+							found_quads[contour_index].vertex[i] = *pt[i];
 					}
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
@@ -148,8 +152,9 @@ int main(int argc, char *argv[])
 		/*
 		 * Find polygons in the disparity data
 		 */
+		quad_coord lights_depth[4];
 		fprintf(stdout, "Disparity Contours (X,Y)\n");
-		cvCopy( detect_contours(image_nodepth_mask), disparity_contours, NULL);
+		cvCopy( detect_contours(image_nodepth_mask, lights_depth), disparity_contours, NULL);
 
 		/*
 		 * find polygons in the RGB data
@@ -163,8 +168,9 @@ int main(int argc, char *argv[])
 		// blurring edges improves contour detection
 		cvSmooth(image_edges, image_edges, CV_GAUSSIAN, 5, 5, 0, 0);
 		// detect contours from edges
+		quad_coord lights_rgb[4];
 		fprintf(stdout, "RGB Contours (X,Y)\n");
-		cvCopy( detect_contours(image_edges), rgb_contours, NULL);
+		cvCopy( detect_contours(image_edges, lights_rgb), rgb_contours, NULL);
 
 		/*
 		 * find matching contours
