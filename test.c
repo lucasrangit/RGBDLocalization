@@ -122,30 +122,31 @@ void test_findCentroid()
 	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroidX, centroidY, area);
 }
 
-void test_dilateQuadAboutCenter()
-{
-	CvPoint2D32f ptA[4];
-	CvPoint2D32f ptB[4];
-	CvPoint2D32f center;
-	float scale;
-
-	// define a test quad
-	ptA[0].x = 0.5; ptA[0].y = 0.5;
-	ptA[1].x = 2.5; ptA[1].y = 0.5;
-	ptA[2].x = 2.5; ptA[2].y = 2.5;
-	ptA[3].x = 0.5; ptA[3].y = 2.5;
-
-	// keep a copy of original
-	memcpy( ptB, ptA, sizeof(ptA));
-
-	// use center of quad
-	// TODO: calculate center
-	center.x = 1.5; center.y = 1.5;
-
-	// scale quad
-	scale = 0.5;
-	dilateQuadAboutCenter( ptB, center, scale);
-}
+// new dilateQuadAboutCenter parameter type, this wont work until updated
+//void test_dilateQuadAboutCenter()
+//{
+//	CvPoint2D32f ptA[4];
+//	CvPoint2D32f ptB[4];
+//	CvPoint2D32f center;
+//	float scale;
+//
+//	// define a test quad
+//	ptA[0].x = 0.5; ptA[0].y = 0.5;
+//	ptA[1].x = 2.5; ptA[1].y = 0.5;
+//	ptA[2].x = 2.5; ptA[2].y = 2.5;
+//	ptA[3].x = 0.5; ptA[3].y = 2.5;
+//
+//	// keep a copy of original
+//	memcpy( ptB, ptA, sizeof(ptA));
+//
+//	// use center of quad
+//	// TODO: calculate center
+//	center.x = 1.5; center.y = 1.5;
+//
+//	// scale quad
+//	scale = 0.5;
+//	dilateQuadAboutCenter( ptB, scale);
+//}
 
 /**
  * Paint all contours with a single OpenCV call on an image.

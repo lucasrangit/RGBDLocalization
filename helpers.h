@@ -16,6 +16,7 @@ void filter_out_of_range_disparity(IplImage *disparity_16u_1, IplImage *image_8u
 void image_paint_value( IplImage *image, int value, int x, int y);
 CvPoint2D32f findCentroid( quad_coord input_quad);
 float distance2f( CvPoint2D32f a, CvPoint2D32f b);
-float approximate_depth( IplImage *disparity, quad_coord quad);
+quad_coord dilateQuadAboutCenter( quad_coord quad, float scale);
+int get_disparity( IplImage *disparity, CvPoint coord);
 
 #endif /* HELPERS_H_ */

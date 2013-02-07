@@ -66,7 +66,7 @@ enum {
 };
 
 typedef struct quad_coord {
-	CvPoint verteces[4];
+	CvPoint vertices[4];
 } quad_coord;
 
 

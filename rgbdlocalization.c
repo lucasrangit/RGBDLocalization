@@ -1,6 +1,44 @@
 #include "rgbdlocalization.h"
 #include "helpers.h"
 
+float approximate_depth( IplImage *disparity, quad_coord quad)
+{
+	float depth = 0.0;
+	float depths[4] = { 0 };
+	int i;
+
+	/*
+	 * Set the depth for each vertex.
+	 * If a vertex does not have a valid depth dilate the quad until one is found.
+	 */
+	for ( i = 0; i < 4; ++i)
+	{
+		int pixel_disparity = get_disparity( disparity, quad.vertices[i]);
+		if ( pixel_disparity > 0 && pixel_disparity < 2047)
+			depths[i] = pixel_disparity;
+		else
+		{
+			// grow each vertex until a known depth is found
+			do
+			{
+				quad_coord scaled_quad = dilateQuadAboutCenter( quad, 10.0);
+				pixel_disparity = get_disparity( disparity, scaled_quad.vertices[i]);
+				if ( pixel_disparity > 0 && pixel_disparity < 2047)
+					depths[i] = pixel_disparity;
+
+				// TODO stop if the next dilation will be out of range (dilate should return an error status
+			} while ( 0 == depths[i] );
+		}
+	}
+
+	// return average of known depth
+	for ( i = 0; i < 4; ++i)
+		depth += depths[i];
+	depth /= 4;
+
+	return depth;
+}
+
 /*
  * Find contours in an image and return a new image with the contours drawn.
  * This function performs a filter on the shapes to identify quadrilaterals
@@ -57,7 +95,7 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 
 						// save the contour as a potential landmark
 						if (contour_index < 4) // don't overrun array
-							found_quads[contour_index].verteces[i] = *pt[i];
+							found_quads[contour_index].vertices[i] = *pt[i];
 					}
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
@@ -186,6 +224,7 @@ int main(int argc, char *argv[])
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
 			float depth = approximate_depth( image_disparity, lights_depth[i]);
+			printf( "Approximate depth[%d] = %f", i, depth);
 		}
 
 
