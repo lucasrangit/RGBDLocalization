@@ -321,7 +321,7 @@ CvPoint2D32f findCentroid( quad_coord input_quad)
 		centroid.x += (verticesX[i] + verticesX[k]) * tmp;
 		centroid.y += (verticesY[i] + verticesY[k]) * tmp;
 	}
-	area *= 0.5f;
+	area *= 0.5f; // TODO why < 0 sometimes? vertices out of order?
 	centroid.x *= 1.0f / (6.0f * area);
 	centroid.y *= 1.0f / (6.0f * area);
 
@@ -336,6 +336,12 @@ float distance2f( CvPoint2D32f a, CvPoint2D32f b)
 
 	distance = sqrtf( pow(b.x - a.x, 2) + pow(b.y - a.y, 2) );
 
+	if ( 0 > distance || distance > 640)
+	{
+		// something wrong
+		distance = -1.0;
+	}
+
 	return distance;
 }
 
@@ -347,7 +353,25 @@ static float scale_cartician( float point, float scale, float center)
 
 int get_disparity( IplImage *disparity, CvPoint coord)
 {
-	return ((short *) disparity->imageData)[coord.y * 640 + coord.x];
+	int pixel_disparity = -1;
+
+	if ( coord.x < 0 || 640 < coord.x)
+	{
+		// out of range
+		goto exit;
+	}
+	else if ( coord.y < 0 || 480 < coord.y)
+	{
+		// out of range
+		goto exit;
+	}
+	else
+	{
+		pixel_disparity = ((short *) disparity->imageData)[coord.y * 640 + coord.x];
+	}
+
+	exit:
+	return pixel_disparity;
 }
 
 /**
@@ -361,11 +385,27 @@ quad_coord dilateQuadAboutCenter( quad_coord quad, float scale)
 	CvPoint2D32f origin = findCentroid( quad);
 	quad_coord scaled_quad;
 
-	scaled_quad.vertices[0].x = scale_cartician(quad.vertices[0].x, scale, origin.x); quad.vertices[0].y = scale_cartician(quad.vertices[0].y, scale, origin.y);
-	scaled_quad.vertices[1].x = scale_cartician(quad.vertices[1].x, scale, origin.x); quad.vertices[1].y = scale_cartician(quad.vertices[1].y, scale, origin.y);
-	scaled_quad.vertices[2].x = scale_cartician(quad.vertices[2].x, scale, origin.x); quad.vertices[2].y = scale_cartician(quad.vertices[2].y, scale, origin.y);
-	scaled_quad.vertices[3].x = scale_cartician(quad.vertices[3].x, scale, origin.x); quad.vertices[3].y = scale_cartician(quad.vertices[3].y, scale, origin.y);
+	scaled_quad.vertices[0].x = scale_cartician(quad.vertices[0].x, scale, origin.x);
+	scaled_quad.vertices[0].y = scale_cartician(quad.vertices[0].y, scale, origin.y);
+	scaled_quad.vertices[1].x = scale_cartician(quad.vertices[1].x, scale, origin.x);
+	scaled_quad.vertices[1].y = scale_cartician(quad.vertices[1].y, scale, origin.y);
+	scaled_quad.vertices[2].x = scale_cartician(quad.vertices[2].x, scale, origin.x);
+	scaled_quad.vertices[2].y = scale_cartician(quad.vertices[2].y, scale, origin.y);
+	scaled_quad.vertices[3].x = scale_cartician(quad.vertices[3].x, scale, origin.x);
+	scaled_quad.vertices[3].y = scale_cartician(quad.vertices[3].y, scale, origin.y);
 
 	return scaled_quad;
 }
 
+void quad_coord_clear(quad_coord lights_depth[4])
+{
+	int i;
+	int j;
+	for (i = 0; i < LANDMARK_COUNT_MAX; ++i) {
+		for (j = 0; j < 4; ++j) {
+			lights_depth[i].vertices[j].x = 0;
+			lights_depth[i].vertices[j].y = 0;
+		}
+		lights_depth[i].valid = QC_INVALID;
+	}
+}

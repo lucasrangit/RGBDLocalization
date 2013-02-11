@@ -65,8 +65,14 @@ enum {
 	KINECT_INDEX_0 = 0,
 };
 
+typedef enum eQcValid {
+	QC_INVALID = 0,
+	QC_VALID,
+} eQcValid;
+
 typedef struct quad_coord {
 	CvPoint vertices[4];
+	eQcValid valid;
 } quad_coord;
 
 

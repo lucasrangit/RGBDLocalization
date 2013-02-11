@@ -18,5 +18,6 @@ CvPoint2D32f findCentroid( quad_coord input_quad);
 float distance2f( CvPoint2D32f a, CvPoint2D32f b);
 quad_coord dilateQuadAboutCenter( quad_coord quad, float scale);
 int get_disparity( IplImage *disparity, CvPoint coord);
+void quad_coord_clear(quad_coord lights_depth[4]);
 
 #endif /* HELPERS_H_ */

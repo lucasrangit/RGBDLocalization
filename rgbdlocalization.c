@@ -3,7 +3,7 @@
 
 float approximate_depth( IplImage *disparity, quad_coord quad)
 {
-	float depth = 0.0;
+	float depth = -1.0;
 	float depths[4] = { 0 };
 	int i;
 
@@ -19,14 +19,26 @@ float approximate_depth( IplImage *disparity, quad_coord quad)
 		else
 		{
 			// grow each vertex until a known depth is found
+			int looplimit = 100;
 			do
 			{
-				quad_coord scaled_quad = dilateQuadAboutCenter( quad, 10.0);
-				pixel_disparity = get_disparity( disparity, scaled_quad.vertices[i]);
-				if ( pixel_disparity > 0 && pixel_disparity < 2047)
-					depths[i] = pixel_disparity;
+				quad_coord scaled_quad = dilateQuadAboutCenter( quad, 1.5);
 
-				// TODO stop if the next dilation will be out of range (dilate should return an error status
+				pixel_disparity = get_disparity( disparity, scaled_quad.vertices[i]);
+
+				// stop if the dilation is out of range
+				if ( -1 == pixel_disparity)
+					// invalid parameter, out of range?
+					goto exit;
+				else if ( pixel_disparity >= 0 && pixel_disparity <= 2047) // change to useful range
+					depths[i] = pixel_disparity; // TODO use disparity2depth
+
+				if (!looplimit--)
+				{
+					// could not find a valid depth (does the sensor have full view of the quad?)
+					depths[i] = -1.0;
+					continue;
+				}
 			} while ( 0 == depths[i] );
 		}
 	}
@@ -36,6 +48,7 @@ float approximate_depth( IplImage *disparity, quad_coord quad)
 		depth += depths[i];
 	depth /= 4;
 
+	exit:
 	return depth;
 }
 
@@ -52,10 +65,10 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 	CvMemStorage *storage = cvCreateMemStorage(0); // storage for contour linked list
 	static IplImage* ret = NULL;
 	if (!ret)
-		ret = cvCreateImage(cvGetSize(img), 8, 1);
+		ret = cvCreateImage(cvGetSize(img), IPL_DEPTH_8U, 1);
 	else
 		cvZero(ret);
-	IplImage* temp = cvCreateImage(cvGetSize(img), 8, 1);
+	IplImage* temp = cvCreateImage(cvGetSize(img), IPL_DEPTH_8U, 1);
 	int i;
 	double area;
 	int contour_index = 0;
@@ -95,7 +108,10 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 
 						// save the contour as a potential landmark
 						if (contour_index < 4) // don't overrun array
+						{
 							found_quads[contour_index].vertices[i] = *pt[i];
+							found_quads[contour_index].valid = QC_VALID;
+						}
 					}
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
@@ -108,7 +124,7 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 						cvLine(ret, *pt[3], *pt[0], line_color, line_thickness, 8, 0);
 					}
 
-					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
+					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index+1, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
 					contour_index++;
 				}
 			}
@@ -188,6 +204,7 @@ int main(int argc, char *argv[])
 		 * Find polygons in the disparity data
 		 */
 		quad_coord lights_depth[4];
+		quad_coord_clear(lights_depth);
 		fprintf(stdout, "Disparity Contours (X,Y)\n");
 		cvCopy( detect_contours(image_nodepth_mask, lights_depth), disparity_contours, NULL);
 
@@ -204,6 +221,7 @@ int main(int argc, char *argv[])
 		cvSmooth(image_edges, image_edges, CV_GAUSSIAN, 5, 5, 0, 0);
 		// detect contours from edges
 		quad_coord lights_rgb[4];
+		quad_coord_clear(lights_rgb);
 		fprintf(stdout, "RGB Contours (X,Y)\n");
 		cvCopy( detect_contours(image_edges, lights_rgb), rgb_contours, NULL);
 
@@ -215,7 +233,7 @@ int main(int argc, char *argv[])
 			CvPoint2D32f centroid_rgb = findCentroid( lights_rgb[i]);
 			CvPoint2D32f centroid_depth = findCentroid( lights_depth[i]);
 			float distance = distance2f(centroid_rgb,centroid_depth);
-			printf("Centroid distance = %f", distance);
+			printf("Centroid #%d distance = %.1f\n", i, distance);
 		}
 
 		/*
@@ -224,7 +242,8 @@ int main(int argc, char *argv[])
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
 			float depth = approximate_depth( image_disparity, lights_depth[i]);
-			printf( "Approximate depth[%d] = %f", i, depth);
+			// can return -1.0 indicating invalid/unknown
+			printf( "Approximate depth[%d] = %.1f\n", i, depth);
 		}
 
 
