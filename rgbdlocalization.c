@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
 		if (-1 != mouse_click.x && -1 != mouse_click.y)
 		{
 			int pixel_disparity = ((short *) image_disparity->imageData)[(mouse_click.y - y_offset) * 640 + (mouse_click.x - x_offset)];
-			image_paint_value( image_blended, pixel_disparity, mouse_click.x, mouse_click.y);
+			draw_value( image_blended, pixel_disparity, mouse_click);
 		}
 
 		/*

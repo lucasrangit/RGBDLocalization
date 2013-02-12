@@ -272,17 +272,17 @@ int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_dst_
 	return error_code;
 }
 
-void image_paint_value( IplImage *image, int value, int x, int y)
+void draw_value( IplImage *image, int value, CvPoint pixel)
 {
 	CvFont font;
-	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 1.0, 1.0, 0, 1, CV_AA);
+	cvInitFont(&font, CV_FONT_HERSHEY_COMPLEX_SMALL, 0.5, 0.5, 0, 1, CV_AA);
 	char coord_str[] = "640,480,-01.234"; // max coordinate length
 	int coord_str_len = strlen(coord_str);
-	sprintf(coord_str, "%03d,%03d,%04d", x, y, value);
+	sprintf(coord_str, "%03d,%03d,%04d", pixel.x, pixel.y, value);
 	//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
 	//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
 	coord_str[coord_str_len] = '\0';
-	cvPutText(image, coord_str, cvPoint(x, y), &font, cvScalar(255, 255, 255, 0));
+	cvPutText(image, coord_str, pixel, &font, cvScalar(255, 255, 255, 0));
 }
 
 /**
