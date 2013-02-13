@@ -4,7 +4,7 @@
 float approximate_depth( IplImage *disparity, quad_coord quad)
 {
 	float depth = -1.0;
-	float depths[4] = { 0 };
+	float vertex_depths[4] = { 0 };
 	int i;
 
 	/*
@@ -13,9 +13,15 @@ float approximate_depth( IplImage *disparity, quad_coord quad)
 	 */
 	for ( i = 0; i < 4; ++i)
 	{
+		if ( QC_INVALID == quad.valid)
+		{
+			// quad has been flagged as invalid
+			goto exit;
+		}
+
 		int pixel_disparity = get_disparity( disparity, quad.vertices[i]);
 		if ( pixel_disparity > 0 && pixel_disparity < 2047)
-			depths[i] = pixel_disparity;
+			vertex_depths[i] = pixel_disparity;
 		else
 		{
 			// grow each vertex until a known depth is found
@@ -31,22 +37,24 @@ float approximate_depth( IplImage *disparity, quad_coord quad)
 					// invalid parameter, out of range?
 					goto exit;
 				else if ( pixel_disparity >= 0 && pixel_disparity <= 2047) // change to useful range
-					depths[i] = pixel_disparity; // TODO use disparity2depth
+					vertex_depths[i] = pixel_disparity; // TODO use disparity2depth
 
 				if (!looplimit--)
 				{
 					// could not find a valid depth (does the sensor have full view of the quad?)
-					depths[i] = -1.0;
+					vertex_depths[i] = -1.0;
 					continue;
 				}
-			} while ( 0 == depths[i] );
+			} while ( 0 == vertex_depths[i] );
 		}
 	}
 
 	// return average of known depth
 	for ( i = 0; i < 4; ++i)
-		depth += depths[i];
-	depth /= 4;
+	{
+		depth += vertex_depths[i];
+	}
+	depth /= i;
 
 	exit:
 	return depth;
@@ -104,12 +112,14 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 					CvPoint *pt[4];
 					for ( i = 0; i < 4; i++)
 					{
+						// total number of vertices is 4, verified earlier
 						pt[i] = (CvPoint*)cvGetSeqElem(polygon, i);
 
 						// save the contour as a potential landmark
-						if (contour_index < 4) // don't overrun array
+						// only save up to LANMARK_COUNT_MAX
+						if (contour_index < LANDMARK_COUNT_MAX)
 						{
-							found_quads[contour_index].vertices[i] = *pt[i];
+							found_quads[contour_index].vertices[contour_index] = *pt[i];
 							found_quads[contour_index].valid = QC_VALID;
 						}
 					}
@@ -226,6 +236,7 @@ int main(int argc, char *argv[])
 			CvPoint centroid_depth = findCentroid( lights_depth[i]);
 			draw_value( image_disparity, i, centroid_depth);
 			int distance = distance2f(centroid_rgb, centroid_depth);
+			// can return -1.0 indicating invalid/unknown
 			printf("Centroid #%d distance = %d\n", i, distance);
 		}
 
@@ -237,14 +248,12 @@ int main(int argc, char *argv[])
 			float depth = approximate_depth( image_disparity, lights_depth[i]);
 			CvPoint centroid_depth = findCentroid( lights_depth[i]);
 			draw_value( image_disparity, depth, centroid_depth);
-			// can return -1.0 indicating invalid/unknown
 			printf( "Approximate depth[%d] = %.1f\n", i, depth);
 		}
 
 		/*
 		 * Display input and intermediate data for monitoring
 		 */
-
 		// blend live RGB and no depth images for monitoring purposes
 		cvMerge( NULL, image_nodepth, NULL, NULL, image_nodepth_color);
 		cvAddWeighted(image_rgb, 1.0, image_nodepth_color, 1.0, 0.0, image_blended);
@@ -281,9 +290,6 @@ int main(int argc, char *argv[])
 	/*
 	 * Cleanup
 	 */
-	// return the camera horizontal tilt
-//	tilt_reset();
-
 	cvDestroyAllWindows();
 
 	cvReleaseImage( &image_rgb);
@@ -297,6 +303,8 @@ int main(int argc, char *argv[])
 	cvReleaseImage( &image_edges);
 	cvReleaseImage( &rgb_contours);
 
+	// return the camera horizontal tilt
+//	tilt_reset();
 
 	/*
 	 * Exit

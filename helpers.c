@@ -274,6 +274,10 @@ int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_dst_
 
 void draw_value( IplImage *image, int value, CvPoint pixel)
 {
+	if (!pixel.x && !pixel.y)
+		// don't print on the origin (anywhere near the top technically would not work @TODO)
+		return;
+
 	CvFont font;
 	cvInitFont(&font, CV_FONT_HERSHEY_COMPLEX_SMALL, 0.5, 0.5, 0, 1, CV_AA);
 	char coord_str[] = "640,480,-01.234"; // max coordinate length
@@ -296,6 +300,9 @@ CvPoint findCentroid( quad_coord input_quad)
 	float verticesX[5];
 	float verticesY[5];
 	CvPoint2D32f centroid = { .x = 0, .y = 0 };
+
+	if ( QC_INVALID == input_quad.valid)
+		goto exit;
 
 	verticesX[0] = input_quad.vertices[0].x;
 	verticesY[0] = input_quad.vertices[0].y;
@@ -327,6 +334,7 @@ CvPoint findCentroid( quad_coord input_quad)
 
 	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroid.x, centroid.y, area);
 
+	exit:
 	return cvPoint( (int)centroid.x, (int)centroid.y);
 }
 
@@ -399,13 +407,19 @@ quad_coord dilateQuadAboutCenter( quad_coord quad, float scale)
 
 void quad_coord_clear(quad_coord lights_depth[4])
 {
-	int i;
-	int j;
-	for (i = 0; i < LANDMARK_COUNT_MAX; ++i) {
-		for (j = 0; j < 4; ++j) {
-			lights_depth[i].vertices[j].x = 0;
-			lights_depth[i].vertices[j].y = 0;
+	int quad;
+	for (quad = 0; quad < LANDMARK_COUNT_MAX; ++quad)
+	{
+		int vertex;
+
+		// by default all quads are invalid
+		lights_depth[quad].valid = QC_INVALID;
+
+		// for safety, iniatialize to a valid coordinate
+		for (vertex = 0; vertex < 4; ++vertex)
+		{
+			lights_depth[quad].vertices[vertex].x = 0;
+			lights_depth[quad].vertices[vertex].y = 0;
 		}
-		lights_depth[i].valid = QC_INVALID;
 	}
 }

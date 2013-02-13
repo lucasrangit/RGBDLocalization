@@ -54,6 +54,9 @@ typedef enum stats_array_index {
 	STATS_ARRAY_DIMENSIONS
 } stats_array_index;
 
+/// The number of landmarks to track.
+/// This is set to 4 for testing
+/// but 3 should be sufficient for triangulation.
 enum { LANDMARK_COUNT_MAX = 4 };
 
 enum {
