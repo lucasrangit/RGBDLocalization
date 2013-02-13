@@ -174,31 +174,22 @@ int main(int argc, char *argv[])
 		if (acquire_color_and_disparity( image_rgb, image_disparity ))
 		{
 			// error getting data, skip processing this frame
-			continue;
+			goto waitloop;
 		}
 
 		/*
-		 * Create RGB and No Depth images for analysis
+		 * Filter raw depth image to create "No Depth" images
 		 */
 		filter_out_of_range_disparity(image_disparity, image_nodepth);
 
+		// offset new depth image based off user input
 		shift_image( image_nodepth, x_offset, y_offset);
 
-		// blend live RGB and no depth images for monitoring purposes
-		cvMerge( NULL, image_nodepth, NULL, NULL, image_nodepth_color);
-		cvAddWeighted(image_rgb, 1.0, image_nodepth_color, 1.0, 0.0, image_blended);
 
 		// take multiple samples of the missing depth data because it's noisy
-		cvAdd( image_nodepth, image_nodepth_mask, image_nodepth_mask, NULL); // adding  _grows_ the mask
+		cvAdd( image_nodepth, image_nodepth_mask, image_nodepth_mask, NULL); // adding _grows_ the mask
 		//cvAnd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // anding _shrinks_ the mask
 		// TODO: use weighted samples (e.g. 3 successive pixels must match)
-
-		// write the coordinate and the disparity where user has left-clicked
-		if (-1 != mouse_click.x && -1 != mouse_click.y)
-		{
-			int pixel_disparity = ((short *) image_disparity->imageData)[(mouse_click.y - y_offset) * 640 + (mouse_click.x - x_offset)];
-			draw_value( image_blended, pixel_disparity, mouse_click);
-		}
 
 		/*
 		 * Find polygons in the disparity data
@@ -230,10 +221,12 @@ int main(int argc, char *argv[])
 		 */
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
-			CvPoint2D32f centroid_rgb = findCentroid( lights_rgb[i]);
-			CvPoint2D32f centroid_depth = findCentroid( lights_depth[i]);
-			float distance = distance2f(centroid_rgb,centroid_depth);
-			printf("Centroid #%d distance = %.1f\n", i, distance);
+			CvPoint centroid_rgb = findCentroid( lights_rgb[i]);
+			draw_value( rgb_contours, i, centroid_rgb);
+			CvPoint centroid_depth = findCentroid( lights_depth[i]);
+			draw_value( image_disparity, i, centroid_depth);
+			int distance = distance2f(centroid_rgb, centroid_depth);
+			printf("Centroid #%d distance = %d\n", i, distance);
 		}
 
 		/*
@@ -242,14 +235,27 @@ int main(int argc, char *argv[])
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
 			float depth = approximate_depth( image_disparity, lights_depth[i]);
+			CvPoint centroid_depth = findCentroid( lights_depth[i]);
+			draw_value( image_disparity, depth, centroid_depth);
 			// can return -1.0 indicating invalid/unknown
 			printf( "Approximate depth[%d] = %.1f\n", i, depth);
 		}
 
-
 		/*
 		 * Display input and intermediate data for monitoring
 		 */
+
+		// blend live RGB and no depth images for monitoring purposes
+		cvMerge( NULL, image_nodepth, NULL, NULL, image_nodepth_color);
+		cvAddWeighted(image_rgb, 1.0, image_nodepth_color, 1.0, 0.0, image_blended);
+
+		// write the coordinate and the disparity where user has left-clicked
+		if (-1 != mouse_click.x && -1 != mouse_click.y)
+		{
+			int pixel_disparity = ((short *) image_disparity->imageData)[(mouse_click.y - y_offset) * 640 + (mouse_click.x - x_offset)];
+			draw_value( image_blended, pixel_disparity, mouse_click);
+		}
+
 		cvShowImage( window_name_live, image_blended);
 		cvShowImage( "Depth Mask", image_nodepth_mask);
 		cvShowImage( "Disparity Contours", disparity_contours);
@@ -257,8 +263,9 @@ int main(int argc, char *argv[])
 		cvShowImage("RGB Contours", rgb_contours);
 
 		/*
-		 * Wait for user input or timeout
+		 * Wait for user input or timeout before continuing
 		 */
+		waitloop:
 		key = cvWaitKey(1000/PROCESS_FPS);
 		reinitialize = handle_key_input(key, &x_offset, &y_offset);
 

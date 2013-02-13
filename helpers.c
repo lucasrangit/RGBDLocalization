@@ -291,7 +291,7 @@ void draw_value( IplImage *image, int value, CvPoint pixel)
  * @author Filipi Vianna
  * @ref http://filipivianna.blogspot.com/2009/11/quadrilateral-centroid-algorithm.html
  */
-CvPoint2D32f findCentroid( quad_coord input_quad)
+CvPoint findCentroid( quad_coord input_quad)
 {
 	float verticesX[5];
 	float verticesY[5];
@@ -327,10 +327,10 @@ CvPoint2D32f findCentroid( quad_coord input_quad)
 
 	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroid.x, centroid.y, area);
 
-	return centroid;
+	return cvPoint( (int)centroid.x, (int)centroid.y);
 }
 
-float distance2f( CvPoint2D32f a, CvPoint2D32f b)
+float distance2f( CvPoint a, CvPoint b)
 {
 	float distance = 0.0;
 
@@ -382,7 +382,7 @@ int get_disparity( IplImage *disparity, CvPoint coord)
  */
 quad_coord dilateQuadAboutCenter( quad_coord quad, float scale)
 {
-	CvPoint2D32f origin = findCentroid( quad);
+	CvPoint origin = findCentroid( quad);
 	quad_coord scaled_quad;
 
 	scaled_quad.vertices[0].x = scale_cartician(quad.vertices[0].x, scale, origin.x);
