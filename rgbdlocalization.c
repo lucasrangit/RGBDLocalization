@@ -134,7 +134,7 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 						cvLine(ret, *pt[3], *pt[0], line_color, line_thickness, 8, 0);
 					}
 
-					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index+1, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
+					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
 					contour_index++;
 				}
 			}
@@ -228,6 +228,7 @@ int main(int argc, char *argv[])
 
 		/*
 		 * Find valid landmark by matching contours
+		 * Potential matching can be done using distance, area, overlap, etc...
 		 */
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
@@ -237,6 +238,7 @@ int main(int argc, char *argv[])
 			draw_value( image_disparity, i, centroid_depth);
 			int distance = distance2f(centroid_rgb, centroid_depth);
 			// can return -1.0 indicating invalid/unknown
+			// for now just print the distance, later add an accept/reject condition
 			printf("Centroid #%d distance = %d\n", i, distance);
 		}
 
@@ -246,8 +248,9 @@ int main(int argc, char *argv[])
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
 			float depth = approximate_depth( image_disparity, lights_depth[i]);
-			CvPoint centroid_depth = findCentroid( lights_depth[i]);
-			draw_value( image_disparity, depth, centroid_depth);
+			CvPoint centroid = findCentroid( lights_depth[i]);
+			// will be centered about depth mask (may want to use center of RGB quad)
+			draw_value( image_rgb, depth, centroid);
 			printf( "Approximate depth[%d] = %.1f\n", i, depth);
 		}
 
