@@ -6,7 +6,7 @@
  */
 #include "rgbdlocalization.h"
 
-#if 0
+#if USE_INVERSE_DEPTH_APPROXIMATION
 /*
  * From their data, a basic first order approximation for converting the raw
  * 11-bit disparity value to a depth value in centimeters is:
