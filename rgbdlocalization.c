@@ -119,10 +119,10 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 						// only save up to LANMARK_COUNT_MAX
 						if (contour_index < LANDMARK_COUNT_MAX)
 						{
-							found_quads[contour_index].vertices[contour_index] = *pt[i];
-							found_quads[contour_index].valid = QC_VALID;
+							found_quads[contour_index].vertices[i] = *pt[i];
 						}
 					}
+					found_quads[contour_index].valid = QC_VALID;
 
 					// draw contour using the vertices so that we can adjust the color and thickness of each
 					{
@@ -232,14 +232,18 @@ int main(int argc, char *argv[])
 		 */
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
-			CvPoint centroid_rgb = findCentroid( lights_rgb[i]);
-			draw_value( rgb_contours, i, centroid_rgb);
-			CvPoint centroid_depth = findCentroid( lights_depth[i]);
-			draw_value( image_disparity, i, centroid_depth);
-			int distance = distance2f(centroid_rgb, centroid_depth);
-			// can return -1.0 indicating invalid/unknown
-			// for now just print the distance, later add an accept/reject condition
-			printf("Centroid #%d distance = %d\n", i, distance);
+			if ( QC_VALID == lights_rgb[i].valid &&
+				 QC_VALID == lights_depth[i].valid )
+			{
+				CvPoint centroid_rgb = findCentroid( lights_rgb[i]);
+				draw_value( rgb_contours, -1, centroid_rgb);
+				CvPoint centroid_depth = findCentroid( lights_depth[i]);
+				draw_value( image_disparity, i, centroid_depth);
+				int distance = distance2f(centroid_rgb, centroid_depth);
+				// can return -1.0 indicating invalid/unknown
+				// for now just print the distance, later add an accept/reject condition
+				printf("Centroid #%d distance = %d\n", i, distance);
+			}
 		}
 
 		/*
