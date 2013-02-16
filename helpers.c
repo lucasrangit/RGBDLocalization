@@ -274,18 +274,25 @@ int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_dst_
 
 void draw_value( IplImage *image, int value, CvPoint pixel)
 {
-	if (!pixel.x && !pixel.y)
-		// don't print on the origin (anywhere near the top technically would not work @TODO)
+	if (0 > pixel.x || 0 > pixel.y)
+		// invalid pixel coordinate
 		return;
 
 	CvFont font;
 	cvInitFont(&font, CV_FONT_HERSHEY_COMPLEX_SMALL, 0.5, 0.5, 0, 1, CV_AA);
-	char coord_str[] = "640,480,-01.234"; // max coordinate length
-	int coord_str_len = strlen(coord_str);
-	sprintf(coord_str, "%03d,%03d,%04d", pixel.x, pixel.y, value);
-	//float pixel_depth_meters = raw_depth_to_meters(pixel_disparity);
-	//sprintf(coord_str, "%03d,%03d,%02.03f", mouse_click.x, mouse_click.y, pixel_depth_meters);
-	coord_str[coord_str_len] = '\0';
+	char coord_str[] = "%03d,%03d,%04d"; // max string length
+
+	if (-1 != value)
+	{
+		// print coordinate with a value
+		sprintf(coord_str, "%03d,%03d,%04d", pixel.x, pixel.y, value);
+	}
+	else
+	{
+		// print just the coordinate without a value
+		sprintf(coord_str, "%03d,%03d", pixel.x, pixel.y);
+	}
+
 	cvPutText(image, coord_str, pixel, &font, cvScalar(255, 255, 255, 0));
 }
 
