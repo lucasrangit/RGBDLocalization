@@ -26,10 +26,11 @@
  */
 enum {
 	PROCESS_FPS = 2,
-	CONTOUR_AREA_MIN = 1000, // @TODO automatically determine area for smallest and largest ceiling light
-	CONTOUR_AREA_MAX = 5000,
+	CONTOUR_AREA_MIN = 1500, // @TODO automatically determine area for smallest and largest ceiling light
+	CONTOUR_AREA_MAX = 6000,
 	CONTOUR_AREA_DIFFERENCE 	= 500,	// maximum difference between the potential matching contours
-	CONTOUR_POSITION_DIFFERENCE = 100	// maximum
+	CONTOUR_POSITION_DIFFERENCE = 100,	// maximum
+	CONTOUR_PERIMETER_PERCENT	= 3
 };
 
 // Kinect's maximum tilt (from libfreenect header)
@@ -78,5 +79,9 @@ typedef struct quad_coord {
 	eQcValid valid;
 } quad_coord;
 
+
+CvPoint findCentroid( quad_coord input_quad);
+quad_coord dilateQuadAboutCenter( quad_coord quad, float scale);
+void quad_coord_clear(quad_coord lights_depth[4]);
 
 #endif /* RGBDLOCALIZATION_H_ */

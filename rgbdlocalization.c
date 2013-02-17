@@ -1,6 +1,97 @@
 #include "rgbdlocalization.h"
 #include "helpers.h"
 
+/**
+ * Quadrilateral Centroid Algorithm
+ *
+ * @author Filipi Vianna
+ * @ref http://filipivianna.blogspot.com/2009/11/quadrilateral-centroid-algorithm.html
+ */
+CvPoint findCentroid( quad_coord input_quad)
+{
+	float verticesX[5];
+	float verticesY[5];
+	CvPoint2D32f centroid = { .x = 0, .y = 0 };
+
+	if ( QC_INVALID == input_quad.valid)
+		goto exit;
+
+	verticesX[0] = input_quad.vertices[0].x;
+	verticesY[0] = input_quad.vertices[0].y;
+	verticesX[1] = input_quad.vertices[1].x;
+	verticesY[1] = input_quad.vertices[1].y;
+	verticesX[2] = input_quad.vertices[2].x;
+	verticesY[2] = input_quad.vertices[2].y;
+	verticesX[3] = input_quad.vertices[3].x;
+	verticesY[3] = input_quad.vertices[3].y;
+	// Repeat the first vertex
+	verticesX[4] = verticesX[0];
+	verticesY[4] = verticesY[0];
+
+	int i, k;
+	float area = 0.0f;
+	float tmp = 0.0f;
+
+	for (i = 0; i <= 4; i++){
+		k = (i + 1) % (4 + 1);
+		tmp = verticesX[i] * verticesY[k] -
+				verticesX[k] * verticesY[i];
+		area += tmp;
+		centroid.x += (verticesX[i] + verticesX[k]) * tmp;
+		centroid.y += (verticesY[i] + verticesY[k]) * tmp;
+	}
+	area *= 0.5f; // TODO why < 0 sometimes? vertices out of order?
+	centroid.x *= 1.0f / (6.0f * area);
+	centroid.y *= 1.0f / (6.0f * area);
+
+	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroid.x, centroid.y, area);
+
+	exit:
+	return cvPoint( (int)centroid.x, (int)centroid.y);
+}
+
+/**
+ * Dilate a quadrilateral about a point.
+ * TODO: evaluate another algorithm that works for convex or concave:
+ *       http://stackoverflow.com/questions/7995547/enlarge-and-restrict-a-quadrilateral-polygon-in-opencv-2-3-with-c
+ * @param[in] verticies going ccw
+ */
+quad_coord dilateQuadAboutCenter( quad_coord quad, float scale)
+{
+	CvPoint origin = findCentroid( quad);
+	quad_coord scaled_quad;
+
+	scaled_quad.vertices[0].x = scale_cartician(quad.vertices[0].x, scale, origin.x);
+	scaled_quad.vertices[0].y = scale_cartician(quad.vertices[0].y, scale, origin.y);
+	scaled_quad.vertices[1].x = scale_cartician(quad.vertices[1].x, scale, origin.x);
+	scaled_quad.vertices[1].y = scale_cartician(quad.vertices[1].y, scale, origin.y);
+	scaled_quad.vertices[2].x = scale_cartician(quad.vertices[2].x, scale, origin.x);
+	scaled_quad.vertices[2].y = scale_cartician(quad.vertices[2].y, scale, origin.y);
+	scaled_quad.vertices[3].x = scale_cartician(quad.vertices[3].x, scale, origin.x);
+	scaled_quad.vertices[3].y = scale_cartician(quad.vertices[3].y, scale, origin.y);
+
+	return scaled_quad;
+}
+
+void quad_coord_clear(quad_coord lights_depth[4])
+{
+	int quad;
+	for (quad = 0; quad < LANDMARK_COUNT_MAX; ++quad)
+	{
+		int vertex;
+
+		// by default all quads are invalid
+		lights_depth[quad].valid = QC_INVALID;
+
+		// for safety, iniatialize to a valid coordinate
+		for (vertex = 0; vertex < 4; ++vertex)
+		{
+			lights_depth[quad].vertices[vertex].x = 0;
+			lights_depth[quad].vertices[vertex].y = 0;
+		}
+	}
+}
+
 float approximate_depth( IplImage *disparity, quad_coord quad)
 {
 	float depth = -1.0;
@@ -96,14 +187,13 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 		// Approximate a polygon around contour using the Douglas-Peucker (DP) approximation.
 		// Pass a zero as the last argument instructs cvApproxPoly to only operate on the first
 		// element of the sequence.
-		polygon = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*0.06, 0);
+		polygon = cvApproxPoly(contours, sizeof(CvContour), storage, CV_POLY_APPROX_DP, cvContourPerimeter(contours)*CONTOUR_PERIMETER_PERCENT/100, 0);
 
 		if (4 == polygon->total)
 		{
 			// has 4 vertices
 			area = fabs(cvContourArea(polygon, CV_WHOLE_SEQ, 0));
-			if ((area > CONTOUR_AREA_MIN) &&
-				(area < CONTOUR_AREA_MAX))
+			if ((CONTOUR_AREA_MIN < area) && (area < CONTOUR_AREA_MAX))
 			{
 				// has "reasonable" area
 				if (cvCheckContourConvexity(polygon))
@@ -172,7 +262,7 @@ int main(int argc, char *argv[])
 	int i;
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
-//	tilt_up();
+	tilt_up();
 
 	// process frames indefinitely at the rate defined by PROCESS_FPS
 	// quit when user presses 'q'
@@ -311,7 +401,7 @@ int main(int argc, char *argv[])
 	cvReleaseImage( &rgb_contours);
 
 	// return the camera horizontal tilt
-//	tilt_reset();
+	tilt_horizontal();
 
 	/*
 	 * Exit
