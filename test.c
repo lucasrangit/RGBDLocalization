@@ -5,6 +5,7 @@
  *      Author: lucasrangit
  */
 #include "rgbdlocalization.h"
+#include "helpers.h"
 
 /**
  * Trying to figure out how this works based on
@@ -63,7 +64,7 @@ void test_cvSolve()
 {
 	// coefficient matrix
 	CvMat* matA = cvCreateMat( 2, 2, CV_32FC1 );
-	cvSetZero(matA); // set all to zero in case we forgot to set an element
+	cvSetZero(matA);
 	*( (float*)CV_MAT_ELEM_PTR( *matA, 0, 0 ) ) = 3;
 	*( (float*)CV_MAT_ELEM_PTR( *matA, 0, 1 ) ) = -1;
 	*( (float*)CV_MAT_ELEM_PTR( *matA, 1, 0 ) ) = -5;
@@ -161,5 +162,176 @@ void test_cvDrawContours( IplImage *img, CvSeq* contours)
 
 	cvShowImage( "All contours", image_all_contours);
 	cvReleaseImage(&image_all_contours);
+}
+
+/**
+ * Estimate the 3D position based on the locations of 3 or more reference satelites.
+ * This algorithm was from X and was written in Matlab by Dr. Jidong Huang and
+ * then converted in to C using OpenCV by Lucas Magasweran.
+ *
+ * @ref APPENDIX A LINEARIZING THE GPS PSEUDORANGE EQUATIONS
+ */
+//function [xyz] = solve3D(svrange, svpos)
+void solve3D( CvMat *svrange, CvMat *svpos)
+{
+	int i = 0, j = 0;
+//eps = 1e-10;
+	float eps = powf(10,-10);
+//% setup the maximum number of iterations
+//max_iter = 10;
+	int max_iter = 10;
+//
+//% number of measurements
+//num_sv = length(svrange);
+	int num_sv = svrange->rows;
+
+//iter = 0; % number of iterations
+	int iter = 0;
+
+//err_est = 100; % a large error to start
+	float err_est = 100;
+
+//% initial estimate from location [0 0 0]
+//xyz = [0 0 0]';
+	CvMat* xyz = cvCreateMat( 3, 1, CV_32FC1 );
+	cvSetZero(xyz);
+
+//% setup the Geometry matrix H, H is a num_sv x 3 matrix
+	CvMat* H = cvCreateMat( num_sv, 3, CV_32FC1 );
+	cvSetZero(H);
+
+	CvMat* dRi = cvCreateMat( num_sv, 1, CV_32FC1 );
+	cvSetZero(dRi);
+
+//while ((iter<max_iter) & (err_est>eps))
+	while ( (iter < max_iter) && (err_est > eps))
+	{
+//    iter = iter + 1;
+		iter++;
+
+//    for i = 1:num_sv
+		for (i = 0; i < num_sv; ++i)
+		{
+			CvMat* svpos_i = cvCreateMat( 3, 1, CV_32FC1 );
+			cvSetZero(svpos_i);
+//        Ri = norm(xyz - svpos(:, i));
+//			for (j = 0; j < 3; ++j)
+//			{
+//				*( (float*)CV_MAT_ELEM_PTR( *svpos_i, j, 0 ) ) =
+//						CV_MAT_ELEM( *svpos, float, j, i );
+//			}
+			get_vector_column( svpos, svpos_i, i);
+			double Ri = cvNorm(xyz, svpos_i, CV_L2, NULL);
+
+//        H(i, 1) = (xyz(1) - svpos(1, i))/Ri;
+//        H(i, 2) = (xyz(2) - svpos(2, i))/Ri;
+//        H(i, 3) = (xyz(3) - svpos(3, i))/Ri;
+			for (j = 0; j < 3; ++j)
+			{
+				*( (float*)CV_MAT_ELEM_PTR( *H, i, j ) ) =
+					(CV_MAT_ELEM( *xyz, float, j, 0 ) - CV_MAT_ELEM( *svpos, float, j, i )) / Ri;
+			}
+
+//        % setup the dRi vector, which is num_sv x 1 vector
+//        dRi(i, 1) = svrange(i) - Ri;
+			*( (float*)CV_MAT_ELEM_PTR( *dRi, i, 0 ) ) =
+					CV_MAT_ELEM( *svrange, float, i, 0 ) - Ri;
+//    end
+		}
+//
+//    % calculate the corrections to xyz vector
+		CvMat* delta_xyz = cvCreateMat( 3, 1, CV_32FC1 );
+		cvSetZero(delta_xyz);
+//    delta_xyz = inv(H'*H)*H'*dRi;
+		int return_code = cvSolve( H, dRi, delta_xyz, CV_SVD);
+
+		for (j = 0; j < 3; ++j)
+		{
+//    % apply the corrections to xyz vector
+//    xyz = xyz + delta_xyz;
+			*( (float*)CV_MAT_ELEM_PTR( *xyz, j, 0 ) ) =
+					CV_MAT_ELEM( *xyz, float, j, 0 ) + CV_MAT_ELEM( *delta_xyz, float, j, 0 );
+//    err_est = norm(xyz - svpos(:, i)) - svrange(i);
+//			CvMat* err_est = cvCreateMat( 3, 1, CV_32FC1 );
+//			cvSetZero(err_est);
+
+		}
+//end
+	}
+
+	float x = CV_MAT_ELEM( *xyz, float, 0, 0 );
+	float y = CV_MAT_ELEM( *xyz, float, 1, 0 );
+	float z = CV_MAT_ELEM( *xyz, float, 2, 0 );
+
+}
+
+void test_solve3D( )
+{
+//	int i = 0;
+	CvMat* user = cvCreateMat( 3, 1, CV_32FC1 );
+	cvSetZero(user);
+	double svpos_i_norm = 0;
+
+//	user = [-1, 1, 2.5]'
+	*( (float*)CV_MAT_ELEM_PTR( *user, 0, 0 ) ) = -1.0;
+	*( (float*)CV_MAT_ELEM_PTR( *user, 1, 0 ) ) =  1.0;
+	*( (float*)CV_MAT_ELEM_PTR( *user, 2, 0 ) ) =  2.5;
+
+//	% satellite positions
+	CvMat* svpos = cvCreateMat( 3, 3, CV_32FC1 );
+	cvSetZero(svpos);
+	// temp vector for each satellite for use in norm calculations
+	CvMat* svpos_temp = cvCreateMat( 3, 1, CV_32FC1 );
+	cvSetZero(svpos_temp);
+	CvMat* svrange = cvCreateMat( 3, 1, CV_32FC1 );
+	cvSetZero(svrange);
+
+//	svpos(:, 1) = [2, 3, 4]';
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 0 ) ) = 2.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 0 ) ) = 3.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 0 ) ) = 4.0;
+//	svrange(1,1) = norm(user - svpos(:, 1))+.05*randn;
+//	for ( i = 0; i < 3; ++i)
+//	{
+//		*( (float*)CV_MAT_ELEM_PTR( *svpos_temp, i, 0 ) ) =
+//				CV_MAT_ELEM( *svpos, float, i, 0 );
+//	}
+	get_vector_column( svpos, svpos_temp, 0);
+	svpos_i_norm = cvNorm(user, svpos_temp, CV_L2, NULL);
+	*( (float*)CV_MAT_ELEM_PTR( *svrange, 0, 0 ) ) = svpos_i_norm;
+
+//	svpos(:, 2) = [3, 4, 3]';
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 1 ) ) = 3.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 1 ) ) = 4.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 1 ) ) = 3.0;
+//	for ( i = 0; i < 3; ++i)
+//	{
+//		*( (float*)CV_MAT_ELEM_PTR( *svpos_temp, i, 1 ) ) =
+//				CV_MAT_ELEM( *svpos, float, i, 1 );
+//	}
+	get_vector_column( svpos, svpos_temp, 1);
+	svpos_i_norm = cvNorm(user, svpos_temp, CV_L2, NULL);
+	*( (float*)CV_MAT_ELEM_PTR( *svrange, 1, 0 ) ) = svpos_i_norm;
+
+//	svrange(2,1) = norm(user - svpos(:, 2))+.05*randn;
+
+//	svpos(:, 3) = [1, 3, 6]';
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 2 ) ) = 1.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 2 ) ) = 3.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 2 ) ) = 6.0;
+//	svrange(3,1) = norm(user - svpos(:, 3))+.05*randn;
+	get_vector_column( svpos, svpos_temp, 2);
+	svpos_i_norm = cvNorm(user, svpos_temp, CV_L2, NULL);
+	*( (float*)CV_MAT_ELEM_PTR( *svrange, 2, 0 ) ) = svpos_i_norm;
+
+//	svpos(:, 4) = [-1, 2, 3]';
+//	svrange(4,1) = norm(user - svpos(:, 4))+.05*randn;
+
+//	svpos(:, 5) = [-2, 1.5, 3]';
+//	svrange(5,1) = sqrt((user(1) - svpos(1, 5))^2 + (user(2) - svpos(2, 5))^2 ...
+//	    + (user(3) - svpos(3, 5))^2 );
+
+//	xyz = solve3D(svrange, svpos)
+	solve3D( svrange, svpos);
 }
 

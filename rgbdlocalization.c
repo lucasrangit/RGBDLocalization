@@ -44,7 +44,7 @@ CvPoint findCentroid( quad_coord input_quad)
 	centroid.x *= 1.0f / (6.0f * area);
 	centroid.y *= 1.0f / (6.0f * area);
 
-	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroid.x, centroid.y, area);
+//	printf("Centroid = (%1.2f, %1.2f),  area = %1.2f\n", centroid.x, centroid.y, area);
 
 	exit:
 	return cvPoint( (int)centroid.x, (int)centroid.y);
@@ -146,6 +146,8 @@ float approximate_depth( IplImage *disparity, quad_coord quad)
 		depth += vertex_depths[i];
 	}
 	depth /= i;
+
+	depth = raw_depth_to_meters(depth);
 
 	exit:
 	return depth;
@@ -261,6 +263,8 @@ int main(int argc, char *argv[])
 	cvSetMouseCallback( window_name_live, mouseHandler, &mouse_click );
 	int i;
 
+	test_solve3D();
+
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
 	tilt_up();
 
@@ -326,7 +330,7 @@ int main(int argc, char *argv[])
 				 QC_VALID == lights_depth[i].valid )
 			{
 				CvPoint centroid_rgb = findCentroid( lights_rgb[i]);
-				draw_value( rgb_contours, -1, centroid_rgb);
+				draw_value( rgb_contours, -1.0, centroid_rgb);
 				CvPoint centroid_depth = findCentroid( lights_depth[i]);
 				draw_value( image_disparity, i, centroid_depth);
 				int distance = distance2f(centroid_rgb, centroid_depth);
@@ -341,11 +345,14 @@ int main(int argc, char *argv[])
 		 */
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
-			float depth = approximate_depth( image_disparity, lights_depth[i]);
-			CvPoint centroid = findCentroid( lights_depth[i]);
-			// will be centered about depth mask (may want to use center of RGB quad)
-			draw_value( image_rgb, depth, centroid);
-			printf( "Approximate depth[%d] = %.1f\n", i, depth);
+			if ( QC_VALID == lights_depth[i].valid )
+			{
+				float depth = approximate_depth( image_disparity, lights_depth[i]);
+				CvPoint centroid = findCentroid( lights_depth[i]);
+				// will be centered about depth mask (may want to use center of RGB quad)
+				draw_value( image_rgb, depth, centroid);
+				printf( "Approximate depth[%d] = %04.4f\n", i, depth);
+			}
 		}
 
 		/*
