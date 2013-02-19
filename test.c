@@ -165,7 +165,9 @@ void test_cvDrawContours( IplImage *img, CvSeq* contours)
 }
 
 /**
- * Estimate the 3D position based on the locations of 3 or more reference satelites.
+ * Estimate the 3D position based on the locations of 3 or more reference satellites.
+ * The delta time component is 0 because the distances are measured simultaneously.
+ *
  * This algorithm was from X and was written in Matlab by Dr. Jidong Huang and
  * then converted in to C using OpenCV by Lucas Magasweran.
  *
