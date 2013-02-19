@@ -24,11 +24,13 @@ void mouseHandler(int event, int x, int y, int flags, void *param);
 void shift_image( IplImage *image_src, int x_offset, int y_offset);
 int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_disparity);
 void filter_out_of_range_disparity(IplImage *disparity_16u_1, IplImage *image_8u_1);
-void draw_value( IplImage *image, int value, CvPoint pixel);
+void draw_value( IplImage *image, float value, CvPoint pixel);
 float distance2f( CvPoint a, CvPoint b);
 int get_disparity( IplImage *disparity, CvPoint coord);
 void tilt_horizontal();
 void tilt_up();
 float scale_cartician( float point, float scale, float center);
+float raw_depth_to_meters(int raw_disparity);
+int get_vector_column( CvMat *input_matrix, CvMat *output_vector, int column);
 
 #endif /* HELPERS_H_ */

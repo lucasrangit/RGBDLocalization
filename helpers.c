@@ -100,7 +100,7 @@ void tilt_wait_degs(int degrees)
  */
 void tilt_up()
 {
-	tilt_wait_degs(MAX_TILT_ANGLE);
+	tilt_wait_degs(MAX_TILT_ANGLE-1);
 }
 
 /**
@@ -272,7 +272,7 @@ int acquire_color_and_disparity( IplImage *image_dst_color, IplImage *image_dst_
 	return error_code;
 }
 
-void draw_value( IplImage *image, int value, CvPoint pixel)
+void draw_value( IplImage *image, float value, CvPoint pixel)
 {
 	if (0 > pixel.x || 0 > pixel.y)
 		// invalid pixel coordinate
@@ -280,12 +280,12 @@ void draw_value( IplImage *image, int value, CvPoint pixel)
 
 	CvFont font;
 	cvInitFont(&font, CV_FONT_HERSHEY_COMPLEX_SMALL, 0.5, 0.5, 0, 1, CV_AA);
-	char coord_str[] = "%03d,%03d,%04d"; // max string length
+	char coord_str[] = "123,123,1234.1234"; // max string length
 
 	if (-1 != value)
 	{
 		// print coordinate with a value
-		sprintf(coord_str, "%03d,%03d,%04d", pixel.x, pixel.y, value);
+		sprintf(coord_str, "%03d,%03d,%04.4f", pixel.x, pixel.y, value);
 	}
 	else
 	{
@@ -338,4 +338,21 @@ int get_disparity( IplImage *disparity, CvPoint coord)
 
 	exit:
 	return pixel_disparity;
+}
+
+int get_vector_column( CvMat *input_matrix, CvMat *output_vector, int column)
+{
+	int error_code = 0;
+	int i = 0;
+
+	if ( input_matrix->rows != output_vector->rows)
+		assert("rows must match");
+
+	for ( i = 0; i < input_matrix->rows; ++i)
+	{
+		*( (float*)CV_MAT_ELEM_PTR( *output_vector, i, 0 ) ) =
+				CV_MAT_ELEM( *input_matrix, float, i, column );
+	}
+
+	return error_code;
 }
