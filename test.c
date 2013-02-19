@@ -168,8 +168,8 @@ void test_cvDrawContours( IplImage *img, CvSeq* contours)
  * Estimate the 3D position based on the locations of 3 or more reference satellites.
  * The delta time component is 0 because the distances are measured simultaneously.
  *
- * This algorithm was from X and was written in Matlab by Dr. Jidong Huang and
- * then converted in to C using OpenCV by Lucas Magasweran.
+ * This algorithm was from X and was written for Matlab by Dr. Jidong Huang
+ * and converted to C and OpenCV by Lucas Magasweran.
  *
  * @ref APPENDIX A LINEARIZING THE GPS PSEUDORANGE EQUATIONS
  */
@@ -217,11 +217,6 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 			CvMat* svpos_i = cvCreateMat( 3, 1, CV_32FC1 );
 			cvSetZero(svpos_i);
 //        Ri = norm(xyz - svpos(:, i));
-//			for (j = 0; j < 3; ++j)
-//			{
-//				*( (float*)CV_MAT_ELEM_PTR( *svpos_i, j, 0 ) ) =
-//						CV_MAT_ELEM( *svpos, float, j, i );
-//			}
 			get_vector_column( svpos, svpos_i, i);
 			double Ri = cvNorm(xyz, svpos_i, CV_L2, NULL);
 
@@ -293,11 +288,6 @@ void test_solve3D( )
 	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 0 ) ) = 3.0;
 	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 0 ) ) = 4.0;
 //	svrange(1,1) = norm(user - svpos(:, 1))+.05*randn;
-//	for ( i = 0; i < 3; ++i)
-//	{
-//		*( (float*)CV_MAT_ELEM_PTR( *svpos_temp, i, 0 ) ) =
-//				CV_MAT_ELEM( *svpos, float, i, 0 );
-//	}
 	get_vector_column( svpos, svpos_temp, 0);
 	svpos_i_norm = cvNorm(user, svpos_temp, CV_L2, NULL);
 	*( (float*)CV_MAT_ELEM_PTR( *svrange, 0, 0 ) ) = svpos_i_norm;
@@ -306,11 +296,6 @@ void test_solve3D( )
 	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 1 ) ) = 3.0;
 	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 1 ) ) = 4.0;
 	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 1 ) ) = 3.0;
-//	for ( i = 0; i < 3; ++i)
-//	{
-//		*( (float*)CV_MAT_ELEM_PTR( *svpos_temp, i, 1 ) ) =
-//				CV_MAT_ELEM( *svpos, float, i, 1 );
-//	}
 	get_vector_column( svpos, svpos_temp, 1);
 	svpos_i_norm = cvNorm(user, svpos_temp, CV_L2, NULL);
 	*( (float*)CV_MAT_ELEM_PTR( *svrange, 1, 0 ) ) = svpos_i_norm;
