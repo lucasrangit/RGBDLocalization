@@ -340,6 +340,9 @@ int get_disparity( IplImage *disparity, CvPoint coord)
 	return pixel_disparity;
 }
 
+/**
+ * Extract a column vector from a matrix.
+ */
 int get_vector_column( CvMat *input_matrix, CvMat *output_vector, int column)
 {
 	int error_code = 0;
