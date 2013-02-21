@@ -226,7 +226,7 @@ static IplImage* detect_contours(IplImage* img, quad_coord *found_quads)
 						cvLine(ret, *pt[3], *pt[0], line_color, line_thickness, 8, 0);
 					}
 
-					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
+//					fprintf(stdout, "%d. (%03d,%03d) (%03d,%03d) (%03d,%03d) (%03d,%03d) area: %.1f\n", contour_index, pt[0]->x, pt[0]->y, pt[1]->x, pt[1]->y, pt[2]->x, pt[2]->y, pt[3]->x, pt[3]->y, area);
 					contour_index++;
 				}
 			}
@@ -263,10 +263,46 @@ int main(int argc, char *argv[])
 	cvSetMouseCallback( window_name_live, mouseHandler, &mouse_click );
 	int i;
 
-	test_solve3D();
+	// unknown user position
+	CvMat* user = cvCreateMat( 3, 1, CV_32FC1 );
+	cvSetZero(user);
+	// TODO change to 3D point
+//	CvPoint3D32f user = { .x = 0, .y = 0, .z = 0 };
+
+	// known landmark/light positions
+	// [xi, yi, zi]'
+	CvMat* svpos = cvCreateMat( 3, 4, CV_32FC1 );
+	cvSetZero(svpos);
+	// simulated lights experimental configuration
+	// bottom left
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 0 ) ) =  0.4572;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 0 ) ) =  0.1397;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 0 ) ) =  0.4572;
+	// bottom right
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 1 ) ) =  0.4572;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 1 ) ) =  0.2413;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 1 ) ) =  0.4572;
+	// top left
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 2 ) ) =  0.6350;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 2 ) ) =  0.1397;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 2 ) ) =  0.4572;
+	// top right
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 3 ) ) =  0.6350;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 3 ) ) =  0.2413;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 3 ) ) =  0.4572;
+
+	// TODO change to array of 3D points
+//	CvPoint3D32f lights[3];
+//	lights[0].x = 0; lights[0].y = 0; lights[0].z = 0;
+//	lights[1].x = 0; lights[1].y = 0; lights[1].z = 0;
+//	lights[2].x = 0; lights[2].y = 0; lights[2].z = 0;
+
+	// measured landmark/light distances
+	float depths[4] = {0};
+	CvMat* svrange = cvCreateMat( 3, 1, CV_32FC1 );
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
-	tilt_up();
+//	tilt_up();
 
 	// process frames indefinitely at the rate defined by PROCESS_FPS
 	// quit when user presses 'q'
@@ -289,7 +325,6 @@ int main(int argc, char *argv[])
 		// offset new depth image based off user input
 		shift_image( image_nodepth, x_offset, y_offset);
 
-
 		// take multiple samples of the missing depth data because it's noisy
 		cvAdd( image_nodepth, image_nodepth_mask, image_nodepth_mask, NULL); // adding _grows_ the mask
 		//cvAnd( image_depth, image_depth_smooth, image_depth_smooth, NULL); // anding _shrinks_ the mask
@@ -300,7 +335,7 @@ int main(int argc, char *argv[])
 		 */
 		quad_coord lights_depth[4];
 		quad_coord_clear(lights_depth);
-		fprintf(stdout, "Disparity Contours (X,Y)\n");
+//		fprintf(stdout, "Disparity Contours (X,Y)\n");
 		cvCopy( detect_contours(image_nodepth_mask, lights_depth), disparity_contours, NULL);
 
 		/*
@@ -317,7 +352,7 @@ int main(int argc, char *argv[])
 		// detect contours from edges
 		quad_coord lights_rgb[4];
 		quad_coord_clear(lights_rgb);
-		fprintf(stdout, "RGB Contours (X,Y)\n");
+//		fprintf(stdout, "RGB Contours (X,Y)\n");
 		cvCopy( detect_contours(image_edges, lights_rgb), rgb_contours, NULL);
 
 		/*
@@ -335,8 +370,8 @@ int main(int argc, char *argv[])
 				draw_value( image_disparity, i, centroid_depth);
 				int distance = distance2f(centroid_rgb, centroid_depth);
 				// can return -1.0 indicating invalid/unknown
-				// for now just print the distance, later add an accept/reject condition
-				printf("Centroid #%d distance = %d\n", i, distance);
+				// @TODO add an accept/reject condition
+//				printf("Centroid #%d distance = %d\n", i, distance);
 			}
 		}
 
@@ -345,15 +380,27 @@ int main(int argc, char *argv[])
 		 */
 		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
+			depths[i] = 0; // clear previous depth if any
 			if ( QC_VALID == lights_depth[i].valid )
 			{
-				float depth = approximate_depth( image_disparity, lights_depth[i]);
+				depths[i] = approximate_depth( image_disparity, lights_depth[i]);
 				CvPoint centroid = findCentroid( lights_depth[i]);
 				// will be centered about depth mask (may want to use center of RGB quad)
-				draw_value( image_rgb, depth, centroid);
-				printf( "Approximate depth[%d] = %04.4f\n", i, depth);
+				draw_value( image_rgb, depths[i], centroid);
 			}
 		}
+		printf( "%04.4f, %04.4f, %04.4f, %04.4f, ", depths[0], depths[1], depths[2], depths[3]);
+
+		/*
+		 * Calculate relative position
+		 */
+		// TODO convert to array, turn in to vector for now
+		cvSetZero(svrange);
+		for (i = 0; i < 3; ++i)
+		{
+			*( (float*)CV_MAT_ELEM_PTR( *svrange, i, 0 ) ) = depths[i];
+		}
+		solve3D( svrange, svpos);
 
 		/*
 		 * Display input and intermediate data for monitoring
@@ -407,8 +454,12 @@ int main(int argc, char *argv[])
 	cvReleaseImage( &image_edges);
 	cvReleaseImage( &rgb_contours);
 
+	cvReleaseMat(&user);
+	cvReleaseMat(&svpos);
+	cvReleaseMat(&svrange);
+
 	// return the camera horizontal tilt
-	tilt_horizontal();
+//	tilt_horizontal();
 
 	/*
 	 * Exit

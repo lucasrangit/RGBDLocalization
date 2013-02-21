@@ -100,7 +100,7 @@ void tilt_wait_degs(int degrees)
  */
 void tilt_up()
 {
-	tilt_wait_degs(MAX_TILT_ANGLE-1);
+	tilt_wait_degs(MAX_TILT_ANGLE-10);
 }
 
 /**
@@ -178,7 +178,7 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 	{
 	case CV_EVENT_LBUTTONDOWN:
 		/* left button down */
-		fprintf(stdout, "Left button down");
+//		fprintf(stdout, "Left button down");
 		mouse_click->x = x;
 		mouse_click->y = y;
 		break;
@@ -186,10 +186,10 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 		break;
 	case CV_EVENT_RBUTTONDOWN:
 		/* right button down */
-		fprintf(stdout, "Right button down");
+//		fprintf(stdout, "Right button down");
 		break;
 	case CV_EVENT_RBUTTONDBLCLK:
-		fprintf(stdout, "Right button double-click");
+//		fprintf(stdout, "Right button double-click");
 		break;
 	case CV_EVENT_MOUSEMOVE:
 		/* mouse move */
@@ -199,8 +199,8 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 		break;
 	}
 
-	if (handled)
-		fprintf(stdout, " (%d, %d).\n", x, y);
+//	if (handled)
+//		fprintf(stdout, " (%d, %d).\n", x, y);
 }
 
 void shift_image( IplImage *image_src, int x_offset, int y_offset)

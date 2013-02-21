@@ -84,6 +84,10 @@ void test_cvSolve()
 		printf("Solution (x,y) = (%f, %f)\n", x, y);
 	else
 		printf("No solution found");
+
+	cvReleaseMat(&matA);
+	cvReleaseMat(&matB);
+	cvReleaseMat(&matX);
 }
 /**
  * Quadrilateral Centroid Algorithm
@@ -169,7 +173,7 @@ void test_cvDrawContours( IplImage *img, CvSeq* contours)
  * The delta time component is 0 because the distances are measured simultaneously.
  *
  * This algorithm was from X and was written for Matlab by Dr. Jidong Huang
- * and converted to C and OpenCV by Lucas Magasweran.
+ * and converted to C for OpenCV by Lucas Magasweran.
  *
  * @ref APPENDIX A LINEARIZING THE GPS PSEUDORANGE EQUATIONS
  */
@@ -205,6 +209,9 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 	CvMat* dRi = cvCreateMat( num_sv, 1, CV_32FC1 );
 	cvSetZero(dRi);
 
+	CvMat* svpos_i = cvCreateMat( 3, 1, CV_32FC1 );
+	CvMat* delta_xyz = cvCreateMat( 3, 1, CV_32FC1 );
+
 //while ((iter<max_iter) & (err_est>eps))
 	while ( (iter < max_iter) && (err_est > eps))
 	{
@@ -214,9 +221,8 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 //    for i = 1:num_sv
 		for (i = 0; i < num_sv; ++i)
 		{
-			CvMat* svpos_i = cvCreateMat( 3, 1, CV_32FC1 );
-			cvSetZero(svpos_i);
 //        Ri = norm(xyz - svpos(:, i));
+			cvSetZero(svpos_i);
 			get_vector_column( svpos, svpos_i, i);
 			double Ri = cvNorm(xyz, svpos_i, CV_L2, NULL);
 
@@ -237,10 +243,14 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 		}
 //
 //    % calculate the corrections to xyz vector
-		CvMat* delta_xyz = cvCreateMat( 3, 1, CV_32FC1 );
 		cvSetZero(delta_xyz);
 //    delta_xyz = inv(H'*H)*H'*dRi;
 		int return_code = cvSolve( H, dRi, delta_xyz, CV_SVD);
+//		if (return_code)
+//		{
+//			printf("solve3D: cvSolve failed\n");
+//			return;
+//		}
 
 		for (j = 0; j < 3; ++j)
 		{
@@ -260,6 +270,14 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 	float y = CV_MAT_ELEM( *xyz, float, 1, 0 );
 	float z = CV_MAT_ELEM( *xyz, float, 2, 0 );
 
+	printf("%f, %f, %f\n", x, y, z);
+
+	// clean-up
+	cvReleaseMat(&xyz);
+	cvReleaseMat(&H);
+	cvReleaseMat(&dRi);
+	cvReleaseMat(&svpos_i);
+	cvReleaseMat(&delta_xyz);
 }
 
 void test_solve3D( )
@@ -320,5 +338,11 @@ void test_solve3D( )
 
 //	xyz = solve3D(svrange, svpos)
 	solve3D( svrange, svpos);
+
+	// clean-up
+	cvReleaseMat(&user);
+	cvReleaseMat(&svpos);
+	cvReleaseMat(&svpos_temp);
+	cvReleaseMat(&svrange);
 }
 
