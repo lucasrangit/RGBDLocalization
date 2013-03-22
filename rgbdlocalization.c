@@ -263,6 +263,8 @@ int main(int argc, char *argv[])
 	cvSetMouseCallback( window_name_live, mouseHandler, &mouse_click );
 	int i;
 
+	test_solve3D();
+
 	// unknown user position
 	CvMat* user = cvCreateMat( 3, 1, CV_32FC1 );
 	cvSetZero(user);

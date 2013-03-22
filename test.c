@@ -210,6 +210,7 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 	cvSetZero(dRi);
 
 	CvMat* svpos_i = cvCreateMat( 3, 1, CV_32FC1 );
+	double svpos_i_norm = 0;
 	CvMat* delta_xyz = cvCreateMat( 3, 1, CV_32FC1 );
 
 //while ((iter<max_iter) & (err_est>eps))
@@ -258,14 +259,17 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 //    xyz = xyz + delta_xyz;
 			*( (float*)CV_MAT_ELEM_PTR( *xyz, j, 0 ) ) =
 					CV_MAT_ELEM( *xyz, float, j, 0 ) + CV_MAT_ELEM( *delta_xyz, float, j, 0 );
-//    err_est = norm(xyz - svpos(:, i)) - svrange(i);
-//			CvMat* err_est = cvCreateMat( 3, 1, CV_32FC1 );
-//			cvSetZero(err_est);
-
 		}
+
+//    	err_est = norm(xyz - svpos(:, i)) - svrange(i);
+		cvSetZero(svpos_i);
+		get_vector_column( svpos, svpos_i, 2); // use the 3rd position to estimate error
+		svpos_i_norm = cvNorm(xyz, svpos_i, CV_L2, NULL);
+		err_est = svpos_i_norm - CV_MAT_ELEM( *svrange, float, 2, 0 );
 //end
 	}
 
+	// display results
 	float x = CV_MAT_ELEM( *xyz, float, 0, 0 );
 	float y = CV_MAT_ELEM( *xyz, float, 1, 0 );
 	float z = CV_MAT_ELEM( *xyz, float, 2, 0 );
@@ -283,6 +287,7 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 void test_solve3D( )
 {
 //	int i = 0;
+	// user[3][1] = [x, y, z]'
 	CvMat* user = cvCreateMat( 3, 1, CV_32FC1 );
 	cvSetZero(user);
 	double svpos_i_norm = 0;
@@ -293,11 +298,13 @@ void test_solve3D( )
 	*( (float*)CV_MAT_ELEM_PTR( *user, 2, 0 ) ) =  2.5;
 
 //	% satellite positions
+	// svpos[3][3] = [[x1,y1,z1]',[x2,y2,z2]',[x3,y3,z3]']]
 	CvMat* svpos = cvCreateMat( 3, 3, CV_32FC1 );
 	cvSetZero(svpos);
 	// temp vector for each satellite for use in norm calculations
 	CvMat* svpos_temp = cvCreateMat( 3, 1, CV_32FC1 );
 	cvSetZero(svpos_temp);
+
 	CvMat* svrange = cvCreateMat( 3, 1, CV_32FC1 );
 	cvSetZero(svrange);
 
