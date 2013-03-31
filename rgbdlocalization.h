@@ -83,5 +83,6 @@ typedef struct quad_coord {
 CvPoint findCentroid( quad_coord input_quad);
 quad_coord dilateQuadAboutCenter( quad_coord quad, float scale);
 void quad_coord_clear(quad_coord lights_depth[4]);
+void solve3D( CvMat *svrange, CvMat *svpos);
 
 #endif /* RGBDLOCALIZATION_H_ */

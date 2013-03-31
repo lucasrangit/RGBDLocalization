@@ -199,8 +199,8 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 		break;
 	}
 
-//	if (handled)
-//		fprintf(stdout, " (%d, %d).\n", x, y);
+	if (handled)
+		fprintf(stdout, "Unhandled mouse event at (%d, %d).\n", x, y);
 }
 
 void shift_image( IplImage *image_src, int x_offset, int y_offset)
