@@ -172,7 +172,7 @@ bool handle_key_input(char key, int *x_offset, int *y_offset)
 void mouseHandler(int event, int x, int y, int flags, void *param)
 {
 	CvPoint* mouse_click = param;
-	bool handled = true;
+//	bool handled = true;
 
 	switch (event)
 	{
@@ -195,12 +195,12 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
 		/* mouse move */
 	default:
 		/* unhandled event */
-		handled = false;
+//		handled = false;
 		break;
 	}
 
-	if (handled)
-		fprintf(stdout, "Unhandled mouse event at (%d, %d).\n", x, y);
+//	if (handled)
+//		fprintf(stdout, "Unhandled mouse event at (%d, %d).\n", x, y);
 }
 
 void shift_image( IplImage *image_src, int x_offset, int y_offset)
