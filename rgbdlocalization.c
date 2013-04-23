@@ -319,7 +319,8 @@ void solve3D( CvMat *svrange, CvMat *svpos)
 //    % calculate the corrections to xyz vector
 		cvSetZero(delta_xyz);
 //    delta_xyz = inv(H'*H)*H'*dRi;
-		int return_code = cvSolve( H, dRi, delta_xyz, CV_SVD);
+		//int return_code =
+				cvSolve( H, dRi, delta_xyz, CV_SVD);
 //		if (return_code)
 //		{
 //			printf("solve3D: cvSolve failed\n");
@@ -378,6 +379,7 @@ int main(int argc, char *argv[])
 	CvPoint mouse_click = { .x = -1, .y = -1 };
 	cvSetMouseCallback( window_name_live, mouseHandler, &mouse_click );
 	int i;
+	bool sparse = false;
 
 	// unknown user position
 	CvMat* user = cvCreateMat( 3, 1, CV_32FC1 );
@@ -391,21 +393,21 @@ int main(int argc, char *argv[])
 	cvSetZero(svpos);
 	// simulated lights experimental configuration
 	// bottom left
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 0 ) ) =  0.4572;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 0 ) ) =  0.1397;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 0 ) ) =  0.4572;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 0 ) ) = 5.193;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 0 ) ) = 2.438;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 0 ) ) = 2.905;
 	// bottom right
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 1 ) ) =  0.4572;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 1 ) ) =  0.2413;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 1 ) ) =  0.4572;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 1 ) ) = 5.193;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 1 ) ) = 0.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 1 ) ) = 2.905;
 	// top left
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 2 ) ) =  0.6350;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 2 ) ) =  0.1397;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 2 ) ) =  0.4572;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 2 ) ) = 3.364;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 2 ) ) = 2.438;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 2 ) ) = 2.905;
 	// top right
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 3 ) ) =  0.6350;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 3 ) ) =  0.2413;
-	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 3 ) ) =  0.4572;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 3 ) ) = 3.364;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 3 ) ) = 0.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 3 ) ) = 2.905;
 
 	// TODO change to array of 3D points
 //	CvPoint3D32f lights[3];
@@ -415,10 +417,10 @@ int main(int argc, char *argv[])
 
 	// measured landmark/light distances
 	float depths[4] = {0};
-	CvMat* svrange = cvCreateMat( 3, 1, CV_32FC1 );
+	CvMat* svrange = cvCreateMat( LANDMARK_COUNT_MAX, 1, CV_32FC1 );
 
 	// Point the Kinect at the ceiling for a better view of the lights closest to it
-//	tilt_up();
+	tilt_up();
 
 	// process frames indefinitely at the rate defined by PROCESS_FPS
 	// quit when user presses 'q'
@@ -432,6 +434,7 @@ int main(int argc, char *argv[])
 			// error getting data, skip processing this frame
 			goto waitloop;
 		}
+//		cvShowImage( "RGB", image_rgb);
 
 		/*
 		 * Filter raw depth image to create "No Depth" images
@@ -484,7 +487,8 @@ int main(int argc, char *argv[])
 				draw_value( rgb_contours, -1.0, centroid_rgb);
 				CvPoint centroid_depth = findCentroid( lights_depth[i]);
 				draw_value( image_disparity, i, centroid_depth);
-				int distance = distance2f(centroid_rgb, centroid_depth);
+				//int distance =
+						distance2f(centroid_rgb, centroid_depth);
 				// can return -1.0 indicating invalid/unknown
 				// @TODO add an accept/reject condition
 //				printf("Centroid #%d distance = %d\n", i, distance);
@@ -505,18 +509,24 @@ int main(int argc, char *argv[])
 				draw_value( image_rgb, depths[i], centroid);
 			}
 		}
-		printf( "%04.4f, %04.4f, %04.4f, %04.4f, ", depths[0], depths[1], depths[2], depths[3]);
 
 		/*
 		 * Calculate relative position
 		 */
 		// TODO convert to array, turn in to vector for now
 		cvSetZero(svrange);
-		for (i = 0; i < 3; ++i)
+		for (i = 0; i < LANDMARK_COUNT_MAX; ++i)
 		{
 			*( (float*)CV_MAT_ELEM_PTR( *svrange, i, 0 ) ) = depths[i];
+			if ( 0 >= depths[i])
+				sparse = true;
 		}
-		solve3D( svrange, svpos);
+		if ( !sparse)
+		{
+			printf( "%04.4f, %04.4f, %04.4f, %04.4f, ", depths[0], depths[1], depths[2], depths[3]);
+			solve3D( svrange, svpos);
+		}
+		sparse = false;
 
 		/*
 		 * Display input and intermediate data for monitoring
@@ -575,7 +585,7 @@ int main(int argc, char *argv[])
 	cvReleaseMat(&svrange);
 
 	// return the camera horizontal tilt
-//	tilt_horizontal();
+	tilt_horizontal();
 
 	/*
 	 * Exit

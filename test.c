@@ -177,9 +177,9 @@ void test_solve3D( )
 	double svpos_i_norm = 0;
 
 //	user = [-1, 1, 2.5]'
-	*( (float*)CV_MAT_ELEM_PTR( *user, 0, 0 ) ) = -1.0;
-	*( (float*)CV_MAT_ELEM_PTR( *user, 1, 0 ) ) =  1.0;
-	*( (float*)CV_MAT_ELEM_PTR( *user, 2, 0 ) ) =  2.5;
+	*( (float*)CV_MAT_ELEM_PTR( *user, 0, 0 ) ) =  1.0;
+	*( (float*)CV_MAT_ELEM_PTR( *user, 1, 0 ) ) =  2.0;
+	*( (float*)CV_MAT_ELEM_PTR( *user, 2, 0 ) ) = -3.0;
 
 //	% satellite positions
 	// svpos[3][3] = [[x1,y1,z1]',[x2,y2,z2]',[x3,y3,z3]']]
@@ -237,3 +237,36 @@ void test_solve3D( )
 	cvReleaseMat(&svrange);
 }
 
+/**
+ * Test using the laser range finder from a point defined as 0,0,0.
+ */
+void test_laser_solve3D( )
+{
+//	% satellite positions
+	CvMat* svpos = cvCreateMat( 3, 3, CV_32FC1 );
+	cvSetZero(svpos);
+
+	CvMat* svrange = cvCreateMat( 3, 1, CV_32FC1 );
+	cvSetZero(svrange);
+
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 0 ) ) = 2.438;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 0 ) ) = 1.535;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 0 ) ) = 2.895;
+	*( (float*)CV_MAT_ELEM_PTR( *svrange, 0, 0 ) ) = 4.04;
+
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 1 ) ) = 0.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 1 ) ) = 1.535;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 1 ) ) = 2.895;
+	*( (float*)CV_MAT_ELEM_PTR( *svrange, 1, 0 ) ) = 3.258;
+
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 0, 2 ) ) = 0.0;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 1, 2 ) ) = 3.364;
+	*( (float*)CV_MAT_ELEM_PTR( *svpos, 2, 2 ) ) = 2.905;
+	*( (float*)CV_MAT_ELEM_PTR( *svrange, 2, 0 ) ) = 4.426;
+
+	solve3D( svrange, svpos);
+
+	// clean-up
+	cvReleaseMat(&svpos);
+	cvReleaseMat(&svrange);
+}

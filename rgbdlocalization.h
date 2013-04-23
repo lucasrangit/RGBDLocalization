@@ -26,11 +26,11 @@
  */
 enum {
 	PROCESS_FPS = 2,
-	CONTOUR_AREA_MIN = 1000, // @TODO automatically determine area for smallest and largest ceiling light
-	CONTOUR_AREA_MAX = 6000,
+	CONTOUR_AREA_MIN = 1500,//1000, // @TODO automatically determine area for smallest and largest ceiling light
+	CONTOUR_AREA_MAX = 15000,//6000,
 	CONTOUR_AREA_DIFFERENCE 	= 500,	// maximum difference between the potential matching contours
 	CONTOUR_POSITION_DIFFERENCE = 100,	// maximum
-	CONTOUR_PERIMETER_PERCENT	= 9
+	CONTOUR_PERIMETER_PERCENT	= 3//9
 };
 
 // Kinect's maximum tilt (from libfreenect header)
