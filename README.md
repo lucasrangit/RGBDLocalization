@@ -27,10 +27,9 @@ References
 Algorithm
 =========
 
-![Algorithm from Kinect depth and color sensor to triangulated position](https://cdn.rawgit.com/lucasrangit/RGBDLocalization/master/algorithm_flow_chart.svg)
-
 The first stage of the algorithm is to combine the depth and RGB data to identify overlapping polygons where depth data is missing. This will remove objects from the scene that are not windows or lights leaving only those landmarks. Next, to produce the perspective transformation the RGB data must be filtered for noise (e.g. Gaussian), run through an edge detector (e.g. Canny), and finally a straight line filter (e.g. Hough). These combine to produce a black and white image containing only polygons. Next, the centers of these polygon are computed (i.e. centroids) and with the depth data of one or more (ideal) polygons the pose estimation is performed. Finally, this yields the Kinect's position and orientation between the observed 2D projections and their 3D positions in the world frame.
 
+![Algorithm from Kinect depth and color sensor to triangulated position](https://cdn.rawgit.com/lucasrangit/RGBDLocalization/master/algorithm_flow_chart.svg)
 
 Objectives
 ==========
